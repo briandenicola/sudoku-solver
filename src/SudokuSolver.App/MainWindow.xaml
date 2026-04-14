@@ -295,14 +295,14 @@
             <!-- Right Panel -->
             <Grid Grid.Column="2" Margin="8,0,0,0">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" MaxHeight="200" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="2*" />
                 </Grid.RowDefinitions>
 
                 <!-- Explanation card -->
                 <materialDesign:Card Grid.Row="0" Padding="16" Margin="0,0,0,12"
                                       materialDesign:ElevationAssist.Elevation="Dp1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="170">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
                                 <materialDesign:PackIcon Kind="LightbulbOnOutline" Margin="0,0,8,0"
