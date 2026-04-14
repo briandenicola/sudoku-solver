@@ -77,4 +77,31 @@ public class SolverTests
         // Should make progress even if stuck
         Assert.True(result.Steps.Count > 0);
     }
+
+    [Fact]
+    public void GetDifficulty_EasyPuzzle_ReturnsBeginner()
+    {
+        var puzzle = "530070000600195000098000060800060003400803001700020006060000280000419005000080079";
+        var grid = Grid.Parse(puzzle);
+        var solver = new Solver();
+
+        var result = solver.Solve(grid);
+        var difficulty = result.GetDifficulty();
+
+        Assert.NotEmpty(difficulty.Label);
+        Assert.InRange(difficulty.Stars, 1, 5);
+        Assert.Equal(5, difficulty.StarsDisplay.Length);
+        Assert.NotEmpty(difficulty.Breakdown);
+        Assert.Contains("Total steps:", difficulty.Breakdown);
+    }
+
+    [Fact]
+    public void GetDifficulty_EmptyResult_ReturnsUnknown()
+    {
+        var result = new SolveResult([], SolveOutcome.Solved);
+        var difficulty = result.GetDifficulty();
+
+        Assert.Equal("Unknown", difficulty.Label);
+        Assert.Equal(0, difficulty.Stars);
+    }
 }

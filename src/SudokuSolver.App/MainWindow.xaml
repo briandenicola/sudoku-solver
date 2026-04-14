@@ -295,12 +295,31 @@
             <!-- Right Panel -->
             <Grid Grid.Column="2" Margin="8,0,0,0">
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="2*" />
                 </Grid.RowDefinitions>
 
+                <!-- Difficulty rating -->
+                <materialDesign:Card Grid.Row="0" Padding="12,8" Margin="0,0,0,12"
+                                      materialDesign:ElevationAssist.Elevation="Dp1"
+                                      Visibility="{Binding DifficultyLabel, Converter={StaticResource NullToCollapsedConverter}}">
+                    <DockPanel>
+                        <materialDesign:PackIcon Kind="Speedometer" Margin="0,0,8,0"
+                                                  VerticalAlignment="Center" Width="20" Height="20"
+                                                  Foreground="{DynamicResource SecondaryHueMidBrush}" />
+                        <TextBlock DockPanel.Dock="Right" Text="{Binding DifficultyStars}"
+                                   FontSize="16" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource SecondaryHueMidBrush}"
+                                   ToolTip="{Binding DifficultyBreakdown}" />
+                        <TextBlock Text="{Binding DifficultyLabel, StringFormat='Difficulty: {0}'}"
+                                   FontSize="14" FontWeight="Medium" VerticalAlignment="Center"
+                                   ToolTip="{Binding DifficultyBreakdown}" />
+                    </DockPanel>
+                </materialDesign:Card>
+
                 <!-- Explanation card -->
-                <materialDesign:Card Grid.Row="0" Padding="16" Margin="0,0,0,12"
+                <materialDesign:Card Grid.Row="1" Padding="16" Margin="0,0,0,12"
                                       materialDesign:ElevationAssist.Elevation="Dp1">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel>
@@ -318,7 +337,7 @@
                 </materialDesign:Card>
 
                 <!-- Step list card -->
-                <materialDesign:Card Grid.Row="1" Padding="12" materialDesign:ElevationAssist.Elevation="Dp1">
+                <materialDesign:Card Grid.Row="2" Padding="12" materialDesign:ElevationAssist.Elevation="Dp1">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,0,0,8">
                             <materialDesign:PackIcon Kind="FormatListNumbered" Margin="0,0,8,0"

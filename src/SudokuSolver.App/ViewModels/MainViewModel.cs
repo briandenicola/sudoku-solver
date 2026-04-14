@@ -54,6 +54,15 @@ public partial class MainViewModel : ObservableObject
     private int totalSteps;
 
     [ObservableProperty]
+    private string difficultyLabel = "";
+
+    [ObservableProperty]
+    private string difficultyStars = "";
+
+    [ObservableProperty]
+    private string difficultyBreakdown = "";
+
+    [ObservableProperty]
     private bool isAutoPlaying;
 
     [ObservableProperty]
@@ -208,13 +217,18 @@ public partial class MainViewModel : ObservableObject
 
             TotalSteps = _solveResult.Steps.Count;
 
+            var difficulty = _solveResult.GetDifficulty();
+            DifficultyLabel = difficulty.Label;
+            DifficultyStars = difficulty.StarsDisplay;
+            DifficultyBreakdown = difficulty.Breakdown;
+
             // Reset to initial grid for step-through
             CurrentGrid = _originalGrid.Clone();
             CurrentStepIndex = -1;
             ClearHighlights();
 
             StatusMessage = _solveResult.IsSolved
-                ? $"Solved in {_solveResult.Steps.Count} steps! Use Next/Previous to walk through."
+                ? $"Solved in {_solveResult.Steps.Count} steps! Difficulty: {difficulty.Label} {difficulty.StarsDisplay}"
                 : $"Solved {_solveResult.Steps.Count} steps but got stuck. The remaining cells require more advanced techniques.";
         }
         catch (Exception ex)
@@ -340,6 +354,9 @@ public partial class MainViewModel : ObservableObject
         StepList.Clear();
         ClearHighlights();
         CurrentExplanation = "";
+        DifficultyLabel = "";
+        DifficultyStars = "";
+        DifficultyBreakdown = "";
     }
 
     private void ReplayToStep(int targetStep)
