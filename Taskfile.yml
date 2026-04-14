@@ -58,9 +58,9 @@ tasks:
       - dotnet restore
 
   publish:
-    desc: Publish the app as a self-contained executable
+    desc: Publish as a single-file executable
     cmds:
-      - dotnet publish {{.APP_PROJECT}} -c Release -r win-x64 --self-contained -o ./publish
+      - dotnet publish {{.APP_PROJECT}} -c Release -r win-x64 -p:DebugType=none -o ./publish
 
   watch:
     desc: Watch for changes and rebuild
