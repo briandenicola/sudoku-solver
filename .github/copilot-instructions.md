@@ -2,21 +2,33 @@
 
 ## Build, Test, and Lint
 
+This project uses [Task](https://taskfile.dev) for automation. Run `task --list` to see all available tasks.
+
 ```bash
-# Build entire solution
-dotnet build
+# Build and test (default)
+task
+
+# Build only
+task build
 
 # Run all tests
-dotnet test
+task test
 
 # Run a single test by name
-dotnet test --filter "FullyQualifiedName~SolverTests.Solve_EasyPuzzle_Completes"
+task test-filter -- Solve_EasyPuzzle_Completes
 
-# Run tests in a specific project
-dotnet test tests/SudokuSolver.Engine.Tests
+# Run tests for a specific project
+task test-engine
+task test-vision
 
 # Run the WPF application
-dotnet run --project src/SudokuSolver.App
+task run
+
+# Publish self-contained executable
+task publish
+
+# Clean build outputs
+task clean
 ```
 
 Warnings are treated as errors (`TreatWarningsAsErrors` in Directory.Build.props). All projects use nullable reference types.

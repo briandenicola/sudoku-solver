@@ -1,0 +1,68 @@
+version: '3'
+
+vars:
+  SLN: SudokuSolver.sln
+  APP_PROJECT: src/SudokuSolver.App
+  ENGINE_PROJECT: src/SudokuSolver.Engine
+  VISION_PROJECT: src/SudokuSolver.Vision
+  ENGINE_TESTS: tests/SudokuSolver.Engine.Tests
+  VISION_TESTS: tests/SudokuSolver.Vision.Tests
+
+tasks:
+  default:
+    desc: Build and test
+    cmds:
+      - task: build
+      - task: test
+
+  build:
+    desc: Build the entire solution
+    cmds:
+      - dotnet build
+
+  test:
+    desc: Run all tests
+    cmds:
+      - dotnet test
+
+  test-engine:
+    desc: Run engine tests only
+    cmds:
+      - dotnet test {{.ENGINE_TESTS}}
+
+  test-vision:
+    desc: Run vision tests only
+    cmds:
+      - dotnet test {{.VISION_TESTS}}
+
+  test-filter:
+    desc: "Run a single test by name (usage: task test-filter -- TestMethodName)"
+    cmds:
+      - dotnet test --filter "FullyQualifiedName~{{.CLI_ARGS}}"
+
+  run:
+    desc: Run the WPF application
+    cmds:
+      - dotnet run --project {{.APP_PROJECT}}
+
+  clean:
+    desc: Clean all build outputs
+    cmds:
+      - dotnet clean
+      - cmd: Remove-Item -Recurse -Force src/*/bin, src/*/obj, tests/*/bin, tests/*/obj -ErrorAction SilentlyContinue
+        platforms: [windows]
+
+  restore:
+    desc: Restore NuGet packages
+    cmds:
+      - dotnet restore
+
+  publish:
+    desc: Publish the app as a self-contained executable
+    cmds:
+      - dotnet publish {{.APP_PROJECT}} -c Release -r win-x64 --self-contained -o ./publish
+
+  watch:
+    desc: Watch for changes and rebuild
+    cmds:
+      - dotnet watch build --project {{.APP_PROJECT}}
