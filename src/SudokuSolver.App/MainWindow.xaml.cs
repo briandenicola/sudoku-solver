@@ -50,4 +50,10 @@ public partial class MainWindow : Window
             ? Visibility.Collapsed
             : Visibility.Visible;
     }
+
+    private void OnHelpClick(object sender, RoutedEventArgs e)
+    {
+        var help = new HelpWindow { Owner = this };
+        help.Show();
+    }
 }

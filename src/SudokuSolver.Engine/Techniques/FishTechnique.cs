@@ -17,13 +17,14 @@ public class FishTechnique : ISolvingTechnique
     {
         2 => Technique.XWing,
         3 => Technique.Swordfish,
+        4 => Technique.Jellyfish,
         _ => throw new InvalidOperationException()
     };
 
     public FishTechnique(int size)
     {
-        if (size is < 2 or > 3)
-            throw new ArgumentOutOfRangeException(nameof(size), "Size must be 2 (X-Wing) or 3 (Swordfish).");
+        if (size is < 2 or > 4)
+            throw new ArgumentOutOfRangeException(nameof(size), "Size must be 2 (X-Wing), 3 (Swordfish), or 4 (Jellyfish).");
         _size = size;
     }
 
@@ -101,7 +102,13 @@ public class FishTechnique : ISolvingTechnique
                 foreach (var elim in eliminations)
                     elim.Cell.Candidates = elim.Cell.Candidates.Remove(elim.Digit);
 
-                var fishName = _size == 2 ? "X-Wing" : "Swordfish";
+                var fishName = _size switch
+                {
+                    2 => "X-Wing",
+                    3 => "Swordfish",
+                    4 => "Jellyfish",
+                    _ => "Fish"
+                };
                 var baseType = isRowBased ? "rows" : "columns";
                 var coverType = isRowBased ? "columns" : "rows";
                 var baseLabels = string.Join(", ", lineCombo.Select(l => l + 1));

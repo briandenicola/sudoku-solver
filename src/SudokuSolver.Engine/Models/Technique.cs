@@ -17,5 +17,12 @@ public enum Technique
     PointingPair,
     BoxLineReduction,
     XWing,
-    Swordfish
+    Swordfish,
+    Jellyfish,
+    XYWing,
+    XYZWing,
+    UniqueRectangle,
+    SimpleColoring,
+    AiAssisted,
+    Backtracking
 }

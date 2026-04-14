@@ -72,6 +72,12 @@ public class Solver
         new BoxLineReductionTechnique(),
         new FishTechnique(2), // X-Wing
         new FishTechnique(3), // Swordfish
+        new FishTechnique(4), // Jellyfish
+        new XYWingTechnique(),
+        new XYZWingTechnique(),
+        new UniqueRectangleTechnique(),
+        new SimpleColoringTechnique(),
+        new BacktrackingTechnique(), // Last resort — guarantees a solution
     ];
 }
 

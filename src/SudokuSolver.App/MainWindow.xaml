@@ -79,6 +79,14 @@
                                 <TextBlock Text="Settings" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <Button Style="{StaticResource MaterialDesignOutlinedButton}"
+                                Margin="0,0,8,4" Click="OnHelpClick"
+                                materialDesign:ButtonAssist.CornerRadius="6">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="SchoolOutline" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                <TextBlock Text="Techniques" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </WrapPanel>
 
                     <!-- Manual entry (collapsible) -->
@@ -133,6 +141,20 @@
                                 <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center"
                                            TextWrapping="Wrap" FontSize="12" />
                             </DockPanel>
+
+                            <Separator Margin="0,0,0,12" />
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <CheckBox IsChecked="{Binding UseAiAssist}"
+                                          Style="{StaticResource MaterialDesignCheckBox}"
+                                          Margin="0,0,8,0" />
+                                <StackPanel>
+                                    <TextBlock Text="Use AI Assist (Ollama)" FontWeight="Medium" />
+                                    <TextBlock Text="When logical techniques are exhausted, consult the AI model for hints before falling back to backtracking."
+                                               TextWrapping="Wrap" FontSize="11"
+                                               Foreground="{DynamicResource MaterialDesignBodyLight}" />
+                                </StackPanel>
+                            </StackPanel>
 
                             <Separator Margin="0,0,0,12" />
 

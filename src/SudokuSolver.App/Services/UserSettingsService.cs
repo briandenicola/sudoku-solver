@@ -10,6 +10,7 @@ public sealed class UserSettings
     public string OllamaModel { get; set; } = "gemma4";
     public string? ExtractionPrompt { get; set; }
     public double AutoPlaySpeedSeconds { get; set; } = 2.0;
+    public bool UseAiAssist { get; set; }
 }
 
 public sealed class UserSettingsService

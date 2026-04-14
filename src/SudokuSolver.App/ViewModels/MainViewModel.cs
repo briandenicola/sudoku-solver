@@ -72,6 +72,9 @@ public partial class MainViewModel : ObservableObject
     private bool isTestingConnection;
 
     [ObservableProperty]
+    private bool useAiAssist;
+
+    [ObservableProperty]
     private BitmapImage? puzzleImage;
 
     public ObservableCollection<string> AvailableModels { get; } = [];
@@ -89,6 +92,7 @@ public partial class MainViewModel : ObservableObject
         OllamaUrl = settings.OllamaUrl;
         OllamaModel = settings.OllamaModel;
         AutoPlaySpeedSeconds = settings.AutoPlaySpeedSeconds;
+        UseAiAssist = settings.UseAiAssist;
 
         if (!string.IsNullOrWhiteSpace(settings.ExtractionPrompt))
             ExtractionPrompt = settings.ExtractionPrompt;
@@ -102,6 +106,7 @@ public partial class MainViewModel : ObservableObject
             OllamaUrl = OllamaUrl,
             OllamaModel = OllamaModel,
             AutoPlaySpeedSeconds = AutoPlaySpeedSeconds,
+            UseAiAssist = UseAiAssist,
             ExtractionPrompt = ExtractionPrompt == GridExtractor.DefaultPrompt
                 ? null
                 : ExtractionPrompt
@@ -168,31 +173,93 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand(CanExecute = nameof(CanSolve))]
-    private void Solve()
+    private async Task SolveAsync()
     {
         if (_originalGrid == null) return;
 
-        // Re-clone from original so we can replay
-        var grid = _originalGrid.Clone();
-        _solveResult = _solver.Solve(grid);
+        IsBusy = true;
+        StatusMessage = "Solving puzzle...";
 
-        StepList.Clear();
-        for (var i = 0; i < _solveResult.Steps.Count; i++)
+        try
         {
-            StepList.Add(new StepSummaryItem(i + 1, _solveResult.Steps[i].Summary,
-                _solveResult.Steps[i].Technique.ToString()));
+            // Re-clone from original so we can replay
+            var grid = _originalGrid.Clone();
+            _solveResult = _solver.Solve(grid);
+
+            // If stuck and AI assist is enabled, try AI hints
+            if (!_solveResult.IsSolved && UseAiAssist)
+            {
+                StatusMessage = "Logical techniques exhausted. Consulting AI...";
+                await TryAiAssistAsync(grid).ConfigureAwait(true);
+            }
+
+            StepList.Clear();
+            for (var i = 0; i < _solveResult.Steps.Count; i++)
+            {
+                StepList.Add(new StepSummaryItem(i + 1, _solveResult.Steps[i].Summary,
+                    _solveResult.Steps[i].Technique.ToString()));
+            }
+
+            TotalSteps = _solveResult.Steps.Count;
+
+            // Reset to initial grid for step-through
+            CurrentGrid = _originalGrid.Clone();
+            CurrentStepIndex = -1;
+            ClearHighlights();
+
+            StatusMessage = _solveResult.IsSolved
+                ? $"Solved in {_solveResult.Steps.Count} steps! Use Next/Previous to walk through."
+                : $"Solved {_solveResult.Steps.Count} steps but got stuck. The remaining cells require more advanced techniques.";
         }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error during solve: {ex.Message}";
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
 
-        TotalSteps = _solveResult.Steps.Count;
+    private async Task TryAiAssistAsync(Grid grid)
+    {
+        try
+        {
+            var settings = new OllamaSettings
+            {
+                BaseUrl = OllamaUrl,
+                Model = OllamaModel,
+                TimeoutSeconds = 120
+            };
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            var client = new OllamaClient(httpClient, settings);
+            var aiService = new AiHintService(client);
 
-        // Reset to initial grid for step-through
-        CurrentGrid = _originalGrid.Clone();
-        CurrentStepIndex = -1;
-        ClearHighlights();
+            var allSteps = new List<SolveStep>(_solveResult!.Steps);
+            var maxAiAttempts = 50;
 
-        StatusMessage = _solveResult.IsSolved
-            ? $"Solved in {_solveResult.Steps.Count} steps! Use Next/Previous to walk through."
-            : $"Solved {_solveResult.Steps.Count} steps but got stuck. The remaining cells require more advanced techniques.";
+            for (var attempt = 0; attempt < maxAiAttempts && !grid.IsSolved; attempt++)
+            {
+                StatusMessage = $"Consulting AI for hint ({attempt + 1})...";
+                var aiStep = await aiService.GetHintAsync(grid).ConfigureAwait(true);
+                if (aiStep == null) break;
+
+                allSteps.Add(aiStep);
+
+                // After AI placement, try deterministic techniques again
+                var followUp = _solver.Solve(grid);
+                allSteps.AddRange(followUp.Steps);
+
+                if (grid.IsSolved) break;
+            }
+
+            _solveResult = new SolveResult(allSteps,
+                grid.IsSolved ? SolveOutcome.Solved : SolveOutcome.Stuck);
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"AI assist failed: {ex.Message}. Showing deterministic results.";
+        }
     }
 
     private bool CanSolve() => CurrentGrid != null;
