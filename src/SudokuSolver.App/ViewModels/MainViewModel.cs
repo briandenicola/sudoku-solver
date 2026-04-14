@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SudokuSolver.App.Services;
 using SudokuSolver.Engine;
 using SudokuSolver.Engine.Models;
 using SudokuSolver.Vision;
@@ -14,6 +15,7 @@ namespace SudokuSolver.App.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly Solver _solver = new();
+    private readonly UserSettingsService _settingsService = new();
     private GridExtractor? _extractor;
     private DispatcherTimer? _autoPlayTimer;
     private SolveResult? _solveResult;
@@ -75,6 +77,38 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<string> AvailableModels { get; } = [];
 
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
+
+    public MainViewModel()
+    {
+        LoadSettings();
+    }
+
+    private void LoadSettings()
+    {
+        var settings = _settingsService.Load();
+        OllamaUrl = settings.OllamaUrl;
+        OllamaModel = settings.OllamaModel;
+        AutoPlaySpeedSeconds = settings.AutoPlaySpeedSeconds;
+
+        if (!string.IsNullOrWhiteSpace(settings.ExtractionPrompt))
+            ExtractionPrompt = settings.ExtractionPrompt;
+    }
+
+    [RelayCommand]
+    private void SaveSettings()
+    {
+        var settings = new UserSettings
+        {
+            OllamaUrl = OllamaUrl,
+            OllamaModel = OllamaModel,
+            AutoPlaySpeedSeconds = AutoPlaySpeedSeconds,
+            ExtractionPrompt = ExtractionPrompt == GridExtractor.DefaultPrompt
+                ? null
+                : ExtractionPrompt
+        };
+        _settingsService.Save(settings);
+        StatusMessage = "Settings saved.";
+    }
 
     [RelayCommand]
     private async Task LoadImageAsync(string filePath)
