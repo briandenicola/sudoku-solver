@@ -85,4 +85,4 @@ Click **Test Connection** to verify the server is reachable and see which models
 
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
