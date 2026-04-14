@@ -9,6 +9,7 @@
         Width="1200" Height="800"
         MinWidth="960" MinHeight="650"
         WindowStartupLocation="CenterScreen"
+        Icon="Resources/app.ico"
         Style="{StaticResource MaterialDesignWindow}"
         TextElement.Foreground="{DynamicResource MaterialDesignBody}"
         TextElement.FontWeight="Regular"
