@@ -99,10 +99,19 @@ public class UniqueRectangleTechnique : ISolvingTechnique
                 var rectCells = triple.Append(fourth).ToList();
                 var tripleLabels = string.Join(", ", triple.Select(x => x.Label));
 
+                // Highlight the shared candidates in the three bi-value corners
+                var highlights = new List<CandidateHighlight>();
+                foreach (var t in triple)
+                {
+                    highlights.Add(new CandidateHighlight(t, d1));
+                    highlights.Add(new CandidateHighlight(t, d2));
+                }
+
                 return new SolveStep
                 {
                     Technique = Technique,
                     Eliminations = eliminations,
+                    HighlightedCandidates = highlights,
                     PatternCells = rectCells,
                     AffectedCells = [fourth],
                     Summary = $"Unique Rectangle (Type 1): {{{d1},{d2}}} in {string.Join(", ", rectCells.Select(x => x.Label))} → eliminate {{{d1},{d2}}} from {fourth.Label}",

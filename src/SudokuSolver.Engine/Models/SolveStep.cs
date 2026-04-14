@@ -37,6 +37,13 @@ public class SolveStep
     public IReadOnlyList<Cell> AffectedCells { get; init; } = [];
 
     /// <summary>
+    /// Specific candidate digits within pattern cells to highlight (green circles).
+    /// Each entry identifies a cell and the digit that is relevant to the pattern.
+    /// For example, in an XY-Wing with Z=7, this would contain the 7s in the wing cells.
+    /// </summary>
+    public IReadOnlyList<CandidateHighlight> HighlightedCandidates { get; init; } = [];
+
+    /// <summary>
     /// Detailed explanation of how the technique was identified and applied.
     /// This is the core teaching content.
     /// </summary>
@@ -52,3 +59,8 @@ public class SolveStep
 /// Records the removal of a candidate digit from a specific cell.
 /// </summary>
 public record Elimination(Cell Cell, int Digit);
+
+/// <summary>
+/// Identifies a specific candidate digit in a cell to highlight as part of the pattern.
+/// </summary>
+public record CandidateHighlight(Cell Cell, int Digit);

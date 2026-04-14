@@ -76,10 +76,13 @@ public class BoxLineReductionTechnique : ISolvingTechnique
 
         var cellLabels = string.Join(", ", patternCells.Select(c => c.Label));
 
+        var highlights = patternCells.Select(c => new CandidateHighlight(c, digit)).ToList();
+
         return new SolveStep
         {
             Technique = Technique.BoxLineReduction,
             Eliminations = eliminations,
+            HighlightedCandidates = highlights,
             PatternCells = patternCells,
             AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
             Summary = $"Box/Line Reduction: {digit} in {lineName} confined to {boxName}",

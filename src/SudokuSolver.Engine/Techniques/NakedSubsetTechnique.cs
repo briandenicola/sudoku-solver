@@ -65,10 +65,17 @@ public class NakedSubsetTechnique : ISolvingTechnique
                 var digits = string.Join(", ", union);
                 var unitName = FormatUnitName(unitType, unitIndex);
 
+                // Highlight the shared candidates in the subset cells
+                var highlights = new List<CandidateHighlight>();
+                foreach (var cell in combo)
+                    foreach (var d in cell.Candidates.Intersect(union))
+                        highlights.Add(new CandidateHighlight(cell, d));
+
                 return new SolveStep
                 {
                     Technique = Technique,
                     Eliminations = eliminations,
+                    HighlightedCandidates = highlights,
                     PatternCells = combo.ToList(),
                     AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                     Summary = $"Naked {subsetName}: {{{digits}}} in {cellLabels} ({unitName})",

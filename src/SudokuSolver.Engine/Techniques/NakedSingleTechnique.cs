@@ -19,6 +19,10 @@ public class NakedSingleTechnique : ISolvingTechnique
 
             var value = cell.Candidates.Single();
             var eliminations = CollectPeerEliminations(grid, cell, value);
+
+            // Highlight the single remaining candidate
+            var highlights = new List<CandidateHighlight> { new(cell, value) };
+
             grid.PlaceValue(cell, value);
 
             return new SolveStep
@@ -27,6 +31,7 @@ public class NakedSingleTechnique : ISolvingTechnique
                 SolvedCell = cell,
                 PlacedValue = value,
                 Eliminations = eliminations,
+                HighlightedCandidates = highlights,
                 PatternCells = [cell],
                 AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                 Summary = $"Naked Single: {cell.Label} = {value}",

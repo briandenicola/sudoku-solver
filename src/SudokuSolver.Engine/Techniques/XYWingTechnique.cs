@@ -66,10 +66,20 @@ public class XYWingTechnique : ISolvingTechnique
                     foreach (var elim in eliminations)
                         elim.Cell.Candidates = elim.Cell.Candidates.Remove(elim.Digit);
 
+                    // Highlight the Z digit in both wings (the candidate being eliminated elsewhere)
+                    var highlights = new List<CandidateHighlight>
+                    {
+                        new(wing1, z),
+                        new(wing2, z),
+                        new(hinge, x),
+                        new(hinge, y)
+                    };
+
                     return new SolveStep
                     {
                         Technique = Technique,
                         Eliminations = eliminations,
+                        HighlightedCandidates = highlights,
                         PatternCells = [hinge, wing1, wing2],
                         AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                         Summary = $"XY-Wing: hinge {hinge.Label}{{{x},{y}}}, wings {wing1.Label}{{{x},{z}}} and {wing2.Label}{{{y},{z}}} → eliminate {z}",

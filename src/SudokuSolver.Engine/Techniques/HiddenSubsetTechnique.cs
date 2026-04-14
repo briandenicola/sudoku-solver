@@ -82,10 +82,18 @@ public class HiddenSubsetTechnique : ISolvingTechnique
                 var digitStr = string.Join(", ", digitCombo);
                 var unitName = FormatUnitName(unitType, unitIndex);
 
+                // Highlight the hidden digits in the subset cells
+                var highlights = new List<CandidateHighlight>();
+                foreach (var cell in cellSet)
+                    foreach (var d in digitCombo)
+                        if (cell.Candidates.Contains(d))
+                            highlights.Add(new CandidateHighlight(cell, d));
+
                 return new SolveStep
                 {
                     Technique = Technique,
                     Eliminations = eliminations,
+                    HighlightedCandidates = highlights,
                     PatternCells = cellSet.ToList(),
                     AffectedCells = cellSet.ToList(),
                     Summary = $"Hidden {subsetName}: {{{digitStr}}} in {cellLabels} ({unitName})",

@@ -115,10 +115,16 @@ public class FishTechnique : ISolvingTechnique
                 var coverLabels = string.Join(", ", coverPositions.OrderBy(p => p).Select(p => p + 1));
                 var patternLabels = string.Join(", ", patternCells.Select(c => c.Label));
 
+                // Build candidate highlights: the key digit in each pattern cell
+                var highlights = patternCells
+                    .Select(c => new CandidateHighlight(c, digit))
+                    .ToList();
+
                 return new SolveStep
                 {
                     Technique = Technique,
                     Eliminations = eliminations,
+                    HighlightedCandidates = highlights,
                     PatternCells = patternCells,
                     AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                     Summary = $"{fishName}: digit {digit} in {baseType} {baseLabels} / {coverType} {coverLabels}",

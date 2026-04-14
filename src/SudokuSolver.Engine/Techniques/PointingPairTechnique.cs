@@ -66,10 +66,14 @@ public class PointingPairTechnique : ISolvingTechnique
         var cellLabels = string.Join(", ", patternCells.Select(c => c.Label));
         var countName = patternCells.Count == 2 ? "Pair" : "Triple";
 
+        // Highlight the digit in the pointing cells
+        var highlights = patternCells.Select(c => new CandidateHighlight(c, digit)).ToList();
+
         return new SolveStep
         {
             Technique = Technique.PointingPair,
             Eliminations = eliminations,
+            HighlightedCandidates = highlights,
             PatternCells = patternCells,
             AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
             Summary = $"Pointing {countName}: {digit} in {boxName} points along {lineName}",

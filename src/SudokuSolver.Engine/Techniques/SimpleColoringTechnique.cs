@@ -98,10 +98,17 @@ public class SimpleColoringTechnique : ISolvingTechnique
                     var falseLabels = string.Join(", ", falseColor.Select(c => c.Label));
                     var trueLabels = string.Join(", ", trueColor.Select(c => c.Label));
 
+                    // Highlight the digit in the true-color cells (they survive)
+                    var highlights = trueColor
+                        .Where(c => c.Candidates.Contains(digit))
+                        .Select(c => new CandidateHighlight(c, digit))
+                        .ToList();
+
                     return new SolveStep
                     {
                         Technique = Technique,
                         Eliminations = eliminations,
+                        HighlightedCandidates = highlights,
                         PatternCells = trueColor.Concat(falseColor).ToList(),
                         AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                         Summary = $"Simple Coloring (Rule 1): digit {digit}, color conflict in {conflictUnit}",
@@ -184,10 +191,17 @@ public class SimpleColoringTechnique : ISolvingTechnique
         var aLabels = string.Join(", ", colorA.Select(c => c.Label));
         var bLabels = string.Join(", ", colorB.Select(c => c.Label));
 
+        // Highlight the digit in all colored cells
+        var highlights = colorA.Concat(colorB)
+            .Where(c => c.Candidates.Contains(digit))
+            .Select(c => new CandidateHighlight(c, digit))
+            .ToList();
+
         return new SolveStep
         {
             Technique = Technique.SimpleColoring,
             Eliminations = eliminations,
+            HighlightedCandidates = highlights,
             PatternCells = colorA.Concat(colorB).ToList(),
             AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
             Summary = $"Simple Coloring (Rule 2): digit {digit}, {eliminations.Count} elimination(s) seeing both colors",

@@ -60,6 +60,7 @@ public class HiddenSingleTechnique : ISolvingTechnique
                 SolvedCell = cell,
                 PlacedValue = digit,
                 Eliminations = eliminations,
+                HighlightedCandidates = [new CandidateHighlight(cell, digit)],
                 PatternCells = [cell],
                 AffectedCells = eliminations.Select(e => e.Cell).Distinct().ToList(),
                 Summary = $"Hidden Single: {cell.Label} = {digit} (only place in {unitName})",

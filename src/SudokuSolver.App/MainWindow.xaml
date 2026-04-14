@@ -269,6 +269,8 @@
                             GridData="{Binding CurrentGrid}"
                             HighlightedPatternCells="{Binding HighlightedPatternCells}"
                             HighlightedAffectedCells="{Binding HighlightedAffectedCells}"
+                            HighlightedCandidates="{Binding HighlightedCandidates}"
+                            EliminatedCandidates="{Binding EliminatedCandidates}"
                             Margin="8" />
                     </TabItem>
                     <TabItem Visibility="{Binding PuzzleImage, Converter={StaticResource NullToCollapsed}}">

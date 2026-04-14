@@ -36,6 +36,16 @@ public class SudokuGridControl : Control
             typeof(SudokuGridControl),
             new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty HighlightedCandidatesProperty =
+        DependencyProperty.Register(nameof(HighlightedCandidates), typeof(IReadOnlyList<CandidateHighlight>),
+            typeof(SudokuGridControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty EliminatedCandidatesProperty =
+        DependencyProperty.Register(nameof(EliminatedCandidates), typeof(IReadOnlyList<Elimination>),
+            typeof(SudokuGridControl),
+            new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty SelectedCellRowProperty =
         DependencyProperty.Register(nameof(SelectedCellRow), typeof(int), typeof(SudokuGridControl),
             new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -62,6 +72,18 @@ public class SudokuGridControl : Control
         set => SetValue(HighlightedAffectedCellsProperty, value);
     }
 
+    public IReadOnlyList<CandidateHighlight>? HighlightedCandidates
+    {
+        get => (IReadOnlyList<CandidateHighlight>?)GetValue(HighlightedCandidatesProperty);
+        set => SetValue(HighlightedCandidatesProperty, value);
+    }
+
+    public IReadOnlyList<Elimination>? EliminatedCandidates
+    {
+        get => (IReadOnlyList<Elimination>?)GetValue(EliminatedCandidatesProperty);
+        set => SetValue(EliminatedCandidatesProperty, value);
+    }
+
     public int SelectedCellRow
     {
         get => (int)GetValue(SelectedCellRowProperty);
@@ -81,6 +103,12 @@ public class SudokuGridControl : Control
     private static readonly Brush PatternHighlight = new SolidColorBrush(Color.FromArgb(60, 76, 175, 80));
     private static readonly Brush AffectedHighlight = new SolidColorBrush(Color.FromArgb(60, 244, 67, 54));
     private static readonly Brush SelectedHighlight = new SolidColorBrush(Color.FromArgb(40, 33, 150, 243));
+    private static readonly Brush GreenCandidateBrush = new SolidColorBrush(Color.FromRgb(46, 125, 50));
+    private static readonly Brush RedCandidateBrush = new SolidColorBrush(Color.FromRgb(211, 47, 47));
+    private static readonly Brush GreenCircleFill = new SolidColorBrush(Color.FromArgb(35, 76, 175, 80));
+    private static readonly Brush RedCircleFill = new SolidColorBrush(Color.FromArgb(35, 244, 67, 54));
+    private static readonly Pen GreenCirclePen = new(new SolidColorBrush(Color.FromRgb(46, 125, 50)), 1.5);
+    private static readonly Pen RedCirclePen = new(new SolidColorBrush(Color.FromRgb(211, 47, 47)), 1.5);
     private static readonly Pen ThinPen = new(Brushes.DarkGray, 0.5);
     private static readonly Pen ThickPen = new(Brushes.Black, 2.0);
     private static readonly Pen BorderPen = new(Brushes.Black, 3.0);
@@ -90,10 +118,16 @@ public class SudokuGridControl : Control
         ThinPen.Freeze();
         ThickPen.Freeze();
         BorderPen.Freeze();
+        GreenCirclePen.Freeze();
+        RedCirclePen.Freeze();
         ((SolidColorBrush)SolvedBrush).Freeze();
         ((SolidColorBrush)PatternHighlight).Freeze();
         ((SolidColorBrush)AffectedHighlight).Freeze();
         ((SolidColorBrush)SelectedHighlight).Freeze();
+        ((SolidColorBrush)GreenCandidateBrush).Freeze();
+        ((SolidColorBrush)RedCandidateBrush).Freeze();
+        ((SolidColorBrush)GreenCircleFill).Freeze();
+        ((SolidColorBrush)RedCircleFill).Freeze();
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -108,6 +142,22 @@ public class SudokuGridControl : Control
 
         var patternCells = HighlightedPatternCells;
         var affectedCells = HighlightedAffectedCells;
+
+        // Build candidate-level highlight lookups: (row, col, digit) → highlight type
+        var greenCandidates = new HashSet<(int Row, int Col, int Digit)>();
+        var redCandidates = new HashSet<(int Row, int Col, int Digit)>();
+
+        if (HighlightedCandidates is { Count: > 0 } hc)
+        {
+            foreach (var h in hc)
+                greenCandidates.Add((h.Cell.Row, h.Cell.Column, h.Digit));
+        }
+
+        if (EliminatedCandidates is { Count: > 0 } ec)
+        {
+            foreach (var e in ec)
+                redCandidates.Add((e.Cell.Row, e.Cell.Column, e.Digit));
+        }
 
         // Draw cell backgrounds (highlights)
         for (var r = 0; r < 9; r++)
@@ -150,7 +200,8 @@ public class SudokuGridControl : Control
                 }
                 else if (!cell.Candidates.IsEmpty)
                 {
-                    DrawCandidates(dc, cell, c * cellSize, r * cellSize, cellSize);
+                    DrawCandidates(dc, cell, c * cellSize, r * cellSize, cellSize,
+                        greenCandidates, redCandidates);
                 }
             }
         }
@@ -169,23 +220,44 @@ public class SudokuGridControl : Control
         dc.DrawText(text, new Point(x + (cellSize - text.Width) / 2, y + (cellSize - text.Height) / 2));
     }
 
-    private static void DrawCandidates(DrawingContext dc, Cell cell, double x, double y, double cellSize)
+    private static void DrawCandidates(DrawingContext dc, Cell cell, double x, double y, double cellSize,
+        HashSet<(int Row, int Col, int Digit)> greenCandidates,
+        HashSet<(int Row, int Col, int Digit)> redCandidates)
     {
         var fontSize = cellSize * 0.22;
         var typeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Normal, FontStretches.Normal);
+        var boldTypeface = new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.Bold, FontStretches.Normal);
         var subSize = cellSize / 3.0;
+        var dpi = VisualTreeHelper.GetDpi(Application.Current.MainWindow).PixelsPerDip;
 
         foreach (var digit in cell.Candidates)
         {
             var subRow = (digit - 1) / 3;
             var subCol = (digit - 1) % 3;
+            var key = (cell.Row, cell.Column, digit);
+
+            var isGreen = greenCandidates.Contains(key);
+            var isRed = redCandidates.Contains(key);
+
+            var brush = isGreen ? GreenCandidateBrush : isRed ? RedCandidateBrush : CandidateBrush;
+            var face = (isGreen || isRed) ? boldTypeface : typeface;
 
             var text = new FormattedText(digit.ToString(), System.Globalization.CultureInfo.CurrentCulture,
-                FlowDirection.LeftToRight, typeface, fontSize, CandidateBrush,
-                VisualTreeHelper.GetDpi(Application.Current.MainWindow).PixelsPerDip);
+                FlowDirection.LeftToRight, face, fontSize, brush, dpi);
 
-            var px = x + subCol * subSize + (subSize - text.Width) / 2;
-            var py = y + subRow * subSize + (subSize - text.Height) / 2;
+            var cx = x + subCol * subSize + subSize / 2.0;
+            var cy = y + subRow * subSize + subSize / 2.0;
+            var px = cx - text.Width / 2.0;
+            var py = cy - text.Height / 2.0;
+
+            // Draw circle behind the digit
+            if (isGreen || isRed)
+            {
+                var radius = Math.Min(subSize, subSize) * 0.42;
+                var circlePen = isGreen ? GreenCirclePen : RedCirclePen;
+                var circleFill = isGreen ? GreenCircleFill : RedCircleFill;
+                dc.DrawEllipse(circleFill, circlePen, new Point(cx, cy), radius, radius);
+            }
 
             dc.DrawText(text, new Point(px, py));
         }

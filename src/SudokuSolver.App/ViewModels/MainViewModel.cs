@@ -34,6 +34,12 @@ public partial class MainViewModel : ObservableObject
     private IReadOnlyList<Cell>? highlightedAffectedCells;
 
     [ObservableProperty]
+    private IReadOnlyList<CandidateHighlight>? highlightedCandidates;
+
+    [ObservableProperty]
+    private IReadOnlyList<Elimination>? eliminatedCandidates;
+
+    [ObservableProperty]
     private string statusMessage = "Load a puzzle image or enter a puzzle manually to begin.";
 
     [ObservableProperty]
@@ -352,6 +358,8 @@ public partial class MainViewModel : ObservableObject
             var step = _solveResult.Steps[targetStep];
             HighlightedPatternCells = step.PatternCells;
             HighlightedAffectedCells = step.AffectedCells;
+            HighlightedCandidates = step.HighlightedCandidates;
+            EliminatedCandidates = step.Eliminations;
             CurrentExplanation = step.Explanation;
             StatusMessage = $"Step {targetStep + 1}/{TotalSteps}: {step.Summary}";
         }
@@ -364,6 +372,8 @@ public partial class MainViewModel : ObservableObject
     {
         HighlightedPatternCells = null;
         HighlightedAffectedCells = null;
+        HighlightedCandidates = null;
+        EliminatedCandidates = null;
     }
 
     private void StartAutoPlay()
