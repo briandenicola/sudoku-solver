@@ -6,6 +6,7 @@ using SudokuSolver.Vision;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
+using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
 namespace SudokuSolver.App.ViewModels;
@@ -68,6 +69,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool isTestingConnection;
 
+    [ObservableProperty]
+    private BitmapImage? puzzleImage;
+
     public ObservableCollection<string> AvailableModels { get; } = [];
 
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
@@ -86,6 +90,7 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
+            PuzzleImage = LoadBitmapImage(filePath);
             EnsureExtractor();
             var result = await _extractor!.ExtractFromFileAsync(filePath);
 
@@ -360,6 +365,17 @@ public partial class MainViewModel : ObservableObject
         var ollamaClient = new OllamaClient(httpClient, settings);
         var prompt = string.IsNullOrWhiteSpace(ExtractionPrompt) ? null : ExtractionPrompt;
         _extractor = new GridExtractor(ollamaClient, prompt);
+    }
+
+    private static BitmapImage LoadBitmapImage(string filePath)
+    {
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.UriSource = new Uri(filePath, UriKind.Absolute);
+        bitmap.EndInit();
+        bitmap.Freeze();
+        return bitmap;
     }
 }
 
