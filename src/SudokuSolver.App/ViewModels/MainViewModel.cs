@@ -62,6 +62,14 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string extractionPrompt = GridExtractor.DefaultPrompt;
 
+    [ObservableProperty]
+    private string connectionStatus = "";
+
+    [ObservableProperty]
+    private bool isTestingConnection;
+
+    public ObservableCollection<string> AvailableModels { get; } = [];
+
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
 
     [RelayCommand]
@@ -281,6 +289,64 @@ public partial class MainViewModel : ObservableObject
     private void ResetPrompt()
     {
         ExtractionPrompt = GridExtractor.DefaultPrompt;
+    }
+
+    [RelayCommand]
+    private async Task TestConnectionAsync()
+    {
+        IsTestingConnection = true;
+        ConnectionStatus = "Testing connection...";
+        AvailableModels.Clear();
+
+        try
+        {
+            var settings = new OllamaSettings
+            {
+                BaseUrl = OllamaUrl,
+                Model = OllamaModel,
+                TimeoutSeconds = 10
+            };
+            settings.Validate();
+
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+            var client = new OllamaClient(httpClient, settings);
+            var models = await client.ListModelsAsync().ConfigureAwait(true);
+
+            foreach (var model in models.OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
+                AvailableModels.Add(model);
+
+            var modelMatch = models.Any(m =>
+                m.StartsWith(OllamaModel, StringComparison.OrdinalIgnoreCase));
+
+            if (modelMatch)
+            {
+                ConnectionStatus = $"✅ Connected — model '{OllamaModel}' is available. {models.Count} model(s) found.";
+            }
+            else
+            {
+                ConnectionStatus = $"⚠️ Connected ({models.Count} model(s) found), but '{OllamaModel}' is not installed. Select one from the list or pull it with: ollama pull {OllamaModel}";
+            }
+        }
+        catch (InvalidOperationException ex)
+        {
+            ConnectionStatus = $"❌ Invalid settings: {ex.Message}";
+        }
+        catch (HttpRequestException ex)
+        {
+            ConnectionStatus = $"❌ Cannot reach Ollama at {OllamaUrl}: {ex.Message}";
+        }
+        catch (TaskCanceledException)
+        {
+            ConnectionStatus = $"❌ Connection timed out. Is Ollama running at {OllamaUrl}?";
+        }
+        catch (Exception ex)
+        {
+            ConnectionStatus = $"❌ Error: {ex.Message}";
+        }
+        finally
+        {
+            IsTestingConnection = false;
+        }
     }
 
     private void EnsureExtractor()

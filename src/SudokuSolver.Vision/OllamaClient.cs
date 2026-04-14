@@ -74,6 +74,20 @@ public class OllamaClient
         }
     }
 
+    /// <summary>
+    /// Returns the list of model names available on the Ollama server.
+    /// </summary>
+    public async Task<List<string>> ListModelsAsync(CancellationToken cancellationToken = default)
+    {
+        var response = await _httpClient.GetAsync("api/tags", cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+
+        var result = await response.Content.ReadFromJsonAsync<OllamaTagsResponse>(
+            JsonOptions, cancellationToken).ConfigureAwait(false);
+
+        return result?.Models?.Select(m => m.Name ?? "").Where(n => n.Length > 0).ToList() ?? [];
+    }
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -92,4 +106,14 @@ internal class OllamaGenerateRequest
 internal class OllamaGenerateResponse
 {
     public string? Response { get; set; }
+}
+
+internal class OllamaTagsResponse
+{
+    public List<OllamaModelInfo>? Models { get; set; }
+}
+
+internal class OllamaModelInfo
+{
+    public string? Name { get; set; }
 }
