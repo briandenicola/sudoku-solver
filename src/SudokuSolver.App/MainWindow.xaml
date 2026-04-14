@@ -327,21 +327,25 @@
                             <TextBlock Text="Solving Steps" FontSize="16" FontWeight="Medium" />
                         </StackPanel>
                         <ListView ItemsSource="{Binding StepList}" SelectedIndex="{Binding CurrentStepIndex}"
-                                  BorderThickness="0" FontSize="12">
+                                  BorderThickness="0" FontSize="12"
+                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListView.ItemTemplate>
                                 <DataTemplate>
-                                    <StackPanel Orientation="Horizontal" Margin="2,4">
-                                        <TextBlock Text="{Binding Number, StringFormat='{}{0}.'}"
+                                    <DockPanel Margin="2,4">
+                                        <TextBlock DockPanel.Dock="Left"
+                                                   Text="{Binding Number, StringFormat='{}{0}.'}"
                                                    FontWeight="SemiBold" Width="28"
                                                    Foreground="{DynamicResource PrimaryHueMidBrush}" />
-                                        <Border Background="{DynamicResource MaterialDesignToolBarBackground}"
-                                                CornerRadius="4" Padding="6,2" Margin="0,0,8,0">
+                                        <Border DockPanel.Dock="Left"
+                                                Background="{DynamicResource MaterialDesignToolBarBackground}"
+                                                CornerRadius="4" Padding="6,2" Margin="0,0,8,0"
+                                                VerticalAlignment="Top">
                                             <TextBlock Text="{Binding Technique}" FontSize="10"
                                                        Foreground="{DynamicResource PrimaryHueMidBrush}" FontWeight="Medium" />
                                         </Border>
-                                        <TextBlock Text="{Binding Summary}" TextTrimming="CharacterEllipsis"
+                                        <TextBlock Text="{Binding Summary}" TextWrapping="Wrap"
                                                    VerticalAlignment="Center" />
-                                    </StackPanel>
+                                    </DockPanel>
                                 </DataTemplate>
                             </ListView.ItemTemplate>
                         </ListView>

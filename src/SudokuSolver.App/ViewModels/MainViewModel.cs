@@ -376,6 +376,24 @@ public partial class MainViewModel : ObservableObject
         EliminatedCandidates = null;
     }
 
+    partial void OnCurrentStepIndexChanged(int oldValue, int newValue)
+    {
+        // When the step list selection changes (e.g., user clicks a step), replay to that step
+        if (_solveResult == null || _originalGrid == null) return;
+        if (newValue == oldValue) return;
+
+        if (newValue < 0)
+        {
+            CurrentGrid = _originalGrid.Clone();
+            ClearHighlights();
+            CurrentExplanation = "";
+        }
+        else if (newValue < _solveResult.Steps.Count)
+        {
+            ReplayToStep(newValue);
+        }
+    }
+
     private void StartAutoPlay()
     {
         if (_solveResult == null) return;
