@@ -58,10 +58,19 @@
                             <TextBlock Text="URL:" Width="60" VerticalAlignment="Center" />
                             <TextBox Text="{Binding OllamaUrl, UpdateSourceTrigger=PropertyChanged}" />
                         </DockPanel>
-                        <DockPanel>
+                        <DockPanel Margin="0,0,0,8">
                             <TextBlock Text="Model:" Width="60" VerticalAlignment="Center" />
                             <TextBox Text="{Binding OllamaModel, UpdateSourceTrigger=PropertyChanged}" />
                         </DockPanel>
+
+                        <DockPanel Margin="0,0,0,4">
+                            <TextBlock Text="Extraction Prompt" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Button Content="Reset to Default" Command="{Binding ResetPromptCommand}"
+                                    HorizontalAlignment="Right" Padding="8,2" FontSize="11" />
+                        </DockPanel>
+                        <TextBox Text="{Binding ExtractionPrompt, UpdateSourceTrigger=PropertyChanged}"
+                                 AcceptsReturn="True" TextWrapping="Wrap" Height="100"
+                                 VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12" />
                     </StackPanel>
                 </Border>
             </StackPanel>

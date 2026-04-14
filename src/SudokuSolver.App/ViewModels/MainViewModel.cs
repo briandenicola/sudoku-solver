@@ -59,6 +59,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string ollamaModel = "gemma4";
 
+    [ObservableProperty]
+    private string extractionPrompt = GridExtractor.DefaultPrompt;
+
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
 
     [RelayCommand]
@@ -274,6 +277,12 @@ public partial class MainViewModel : ObservableObject
         _autoPlayTimer = null;
     }
 
+    [RelayCommand]
+    private void ResetPrompt()
+    {
+        ExtractionPrompt = GridExtractor.DefaultPrompt;
+    }
+
     private void EnsureExtractor()
     {
         var settings = new OllamaSettings
@@ -283,7 +292,8 @@ public partial class MainViewModel : ObservableObject
         };
         var httpClient = new HttpClient();
         var ollamaClient = new OllamaClient(httpClient, settings);
-        _extractor = new GridExtractor(ollamaClient);
+        var prompt = string.IsNullOrWhiteSpace(ExtractionPrompt) ? null : ExtractionPrompt;
+        _extractor = new GridExtractor(ollamaClient, prompt);
     }
 }
 

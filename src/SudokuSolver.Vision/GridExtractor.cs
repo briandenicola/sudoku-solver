@@ -11,10 +11,13 @@ public partial class GridExtractor
 {
     private readonly OllamaClient _client;
 
-    public GridExtractor(OllamaClient client)
+    public GridExtractor(OllamaClient client, string? customPrompt = null)
     {
         _client = client;
+        _customPrompt = customPrompt;
     }
+
+    private readonly string? _customPrompt;
 
     /// <summary>
     /// Extracts a sudoku grid from an image file.
@@ -40,7 +43,8 @@ public partial class GridExtractor
     public async Task<GridExtractionResult> ExtractFromBase64Async(string imageBase64,
         CancellationToken cancellationToken = default)
     {
-        var rawResponse = await _client.GenerateAsync(ExtractionPrompt, imageBase64, cancellationToken)
+        var prompt = !string.IsNullOrWhiteSpace(_customPrompt) ? _customPrompt : DefaultPrompt;
+        var rawResponse = await _client.GenerateAsync(prompt, imageBase64, cancellationToken)
             .ConfigureAwait(false);
 
         return ParseResponse(rawResponse);
@@ -75,7 +79,7 @@ public partial class GridExtractor
         }
     }
 
-    private const string ExtractionPrompt = """
+    public const string DefaultPrompt = """
         Analyze this sudoku puzzle image. Extract all digits from the 9x9 grid.
         
         Output EXACTLY 9 lines, each containing EXACTLY 9 digits separated by spaces.
