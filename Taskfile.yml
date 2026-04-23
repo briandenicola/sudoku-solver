@@ -10,10 +10,9 @@ vars:
 
 tasks:
   default:
-    desc: Build and test
+    desc: List all available tasks
     cmds:
-      - task: build
-      - task: test
+      - task --list
 
   build:
     desc: Build the entire solution
