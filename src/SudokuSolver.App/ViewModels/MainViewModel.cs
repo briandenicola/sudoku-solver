@@ -363,10 +363,11 @@ public partial class MainViewModel : ObservableObject
     {
         if (_solveResult == null || _originalGrid == null) return;
 
-        // Replay from scratch to the target step
+        // Replay from scratch to just before the target step, so the grid shows
+        // the state before this step's eliminations — letting us highlight them
         var grid = _originalGrid.Clone();
         var solver = new Solver();
-        var tempResult = solver.Solve(grid, maxSteps: targetStep + 1);
+        solver.Solve(grid, maxSteps: targetStep);
 
         CurrentGrid = grid;
 
