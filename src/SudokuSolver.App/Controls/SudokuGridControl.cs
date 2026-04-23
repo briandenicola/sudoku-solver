@@ -106,9 +106,10 @@ public class SudokuGridControl : Control
     private static readonly Brush GreenCandidateBrush = new SolidColorBrush(Color.FromRgb(46, 125, 50));
     private static readonly Brush RedCandidateBrush = new SolidColorBrush(Color.FromRgb(211, 47, 47));
     private static readonly Brush GreenCircleFill = new SolidColorBrush(Color.FromArgb(35, 76, 175, 80));
-    private static readonly Brush RedCircleFill = new SolidColorBrush(Color.FromArgb(35, 244, 67, 54));
+    private static readonly Brush RedCircleFill = new SolidColorBrush(Color.FromArgb(70, 244, 67, 54));
     private static readonly Pen GreenCirclePen = new(new SolidColorBrush(Color.FromRgb(46, 125, 50)), 1.5);
-    private static readonly Pen RedCirclePen = new(new SolidColorBrush(Color.FromRgb(211, 47, 47)), 1.5);
+    private static readonly Pen RedCirclePen = new(new SolidColorBrush(Color.FromRgb(211, 47, 47)), 2.0);
+    private static readonly Pen RedStrikethroughPen = new(new SolidColorBrush(Color.FromRgb(211, 47, 47)), 2.0);
     private static readonly Pen ThinPen = new(Brushes.DarkGray, 0.5);
     private static readonly Pen ThickPen = new(Brushes.Black, 2.0);
     private static readonly Pen BorderPen = new(Brushes.Black, 3.0);
@@ -120,6 +121,7 @@ public class SudokuGridControl : Control
         BorderPen.Freeze();
         GreenCirclePen.Freeze();
         RedCirclePen.Freeze();
+        RedStrikethroughPen.Freeze();
         ((SolidColorBrush)SolvedBrush).Freeze();
         ((SolidColorBrush)PatternHighlight).Freeze();
         ((SolidColorBrush)AffectedHighlight).Freeze();
@@ -260,6 +262,15 @@ public class SudokuGridControl : Control
             }
 
             dc.DrawText(text, new Point(px, py));
+
+            // Draw diagonal strikethrough over eliminated candidates
+            if (isRed)
+            {
+                var halfSize = subSize * 0.32;
+                dc.DrawLine(RedStrikethroughPen,
+                    new Point(cx - halfSize, cy - halfSize),
+                    new Point(cx + halfSize, cy + halfSize));
+            }
         }
     }
 
