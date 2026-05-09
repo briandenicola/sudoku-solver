@@ -10,10 +10,22 @@ Built with .NET 10, WPF, and Material Design.
 - **Manual entry** — Type or paste 81 digits directly
 - **Step-by-step solving** — Walk through with Next/Previous or auto-play at adjustable speed
 - **Detailed explanations** — Each step explains the reasoning (e.g., "In row 3, the digit 7 can only go in R3C4 because…")
-- **9 solving techniques** — Naked Single, Hidden Single, Naked/Hidden Pairs/Triples/Quads, Pointing Pairs, Box/Line Reduction, X-Wing, Swordfish
+- **Q&A Chat** — Ask questions about techniques, moves, or puzzle state; get context-aware AI responses powered by Ollama
+- **17+ solving techniques** — From basic (Naked Single, Hidden Single) to advanced (X-Wing, Swordfish, Jellyfish, XY-Wing, XYZ-Wing, Unique Rectangle, Simple Coloring)
 - **Visual highlighting** — Pattern cells (green) and affected cells (red) are highlighted on the grid
 - **Configurable Ollama** — Set the server URL, model, and extraction prompt from the Settings panel; test connection and browse installed models
 - **Material Design UI** — Light theme with Indigo/Teal accent via MaterialDesignThemes
+
+### New: Q&A Chat Feature
+
+The app now includes an interactive chat panel where you can ask questions about sudoku solving:
+
+- "What is a naked single?"
+- "Why can't I place a 5 in R3C7?"
+- "What technique should I use next?"
+- "Explain the logic behind the last step"
+
+The AI assistant has access to your current puzzle state and solve history, providing context-aware educational responses. See [docs/QA_FEATURE.md](docs/QA_FEATURE.md) for complete documentation.
 
 ## Prerequisites
 
@@ -71,14 +83,22 @@ Click **Test Connection** to verify the server is reachable and see which models
 │   │   ├── Models/               # Grid, Cell, CandidateSet, SolveStep, Technique
 │   │   ├── Techniques/           # One class per technique (ISolvingTechnique)
 │   │   └── Solver.cs             # Orchestrates techniques in difficulty order
-│   ├── SudokuSolver.Vision/      # Ollama API client and grid extraction
+│   ├── SudokuSolver.Vision/      # Ollama API client and AI services
+│   │   ├── OllamaClient.cs       # HTTP wrapper for Ollama REST API
+│   │   ├── GridExtractor.cs      # Extract puzzles from images
+│   │   ├── AiHintService.cs      # AI-assisted solving when stuck
+│   │   ├── ChatService.cs        # Q&A chat with context
+│   │   └── ChatMessage.cs        # Chat message model
 │   └── SudokuSolver.App/         # WPF application (Material Design, MVVM)
-│       ├── Controls/             # Custom SudokuGridControl (owner-drawn)
-│       ├── ViewModels/           # MainViewModel (CommunityToolkit.Mvvm)
+│       ├── Controls/             # Custom SudokuGridControl + ChatPanel
+│       ├── ViewModels/           # MainViewModel + ChatViewModel (CommunityToolkit.Mvvm)
+│       ├── Services/             # UserSettingsService (persistence)
 │       └── Converters/           # WPF value converters
 ├── tests/
 │   ├── SudokuSolver.Engine.Tests/
 │   └── SudokuSolver.Vision.Tests/
+├── docs/
+│   └── QA_FEATURE.md            # Q&A Chat documentation
 ├── Taskfile.yml
 └── Directory.Build.props         # Shared build settings (nullable, warnings-as-errors)
 ```
