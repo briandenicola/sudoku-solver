@@ -119,6 +119,20 @@ public partial class MainViewModel : ObservableObject
 
         if (!string.IsNullOrWhiteSpace(settings.ExtractionPrompt))
             ExtractionPrompt = settings.ExtractionPrompt;
+
+        // Load chat history if enabled
+        if (settings.SaveChatHistory && settings.RecentChatMessages != null)
+        {
+            foreach (var dto in settings.RecentChatMessages)
+            {
+                ChatViewModel.Messages.Add(new ChatMessage
+                {
+                    Role = Enum.Parse<MessageRole>(dto.Role),
+                    Content = dto.Content,
+                    Timestamp = dto.Timestamp
+                });
+            }
+        }
     }
 
     [RelayCommand]
@@ -132,7 +146,17 @@ public partial class MainViewModel : ObservableObject
             UseAiAssist = UseAiAssist,
             ExtractionPrompt = ExtractionPrompt == GridExtractor.DefaultPrompt
                 ? null
-                : ExtractionPrompt
+                : ExtractionPrompt,
+            SaveChatHistory = true,
+            RecentChatMessages = ChatViewModel.Messages
+                .TakeLast(20)  // Save only last 20 messages
+                .Select(m => new ChatMessageDto
+                {
+                    Role = m.Role.ToString(),
+                    Content = m.Content,
+                    Timestamp = m.Timestamp
+                })
+                .ToList()
         };
         _settingsService.Save(settings);
 

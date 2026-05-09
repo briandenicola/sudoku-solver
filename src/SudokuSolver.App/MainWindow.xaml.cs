@@ -11,6 +11,13 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Closing += OnWindowClosing;
+    }
+
+    private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    {
+        // Auto-save settings and chat history on close
+        ViewModel.SaveSettings();
     }
 
     private async void OnLoadImageClick(object sender, RoutedEventArgs e)
