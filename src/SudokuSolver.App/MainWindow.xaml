@@ -318,22 +318,37 @@
                     </DockPanel>
                 </materialDesign:Card>
 
-                <!-- Explanation card -->
-                <materialDesign:Card Grid.Row="1" Padding="16" Margin="0,0,0,12"
+                <!-- Tabbed panel: Explanation / Q&A Chat -->
+                <materialDesign:Card Grid.Row="1" Padding="12" Margin="0,0,0,12"
                                       materialDesign:ElevationAssist.Elevation="Dp1">
-                    <ScrollViewer VerticalScrollBarVisibility="Auto">
-                        <StackPanel>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                                <materialDesign:PackIcon Kind="LightbulbOnOutline" Margin="0,0,8,0"
-                                                          VerticalAlignment="Center"
-                                                          Foreground="{DynamicResource SecondaryHueMidBrush}" />
-                                <TextBlock Text="Step Explanation" FontSize="16" FontWeight="Medium" />
-                            </StackPanel>
-                            <TextBlock Text="{Binding CurrentExplanation, FallbackValue='Select a step to see its explanation.'}"
-                                       TextWrapping="Wrap" FontSize="13" LineHeight="22"
-                                       Foreground="{DynamicResource MaterialDesignBody}" />
-                        </StackPanel>
-                    </ScrollViewer>
+                    <TabControl Style="{StaticResource MaterialDesignNavigationRailTabControl}">
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel>
+                                    <materialDesign:PackIcon Kind="LightbulbOnOutline" Width="20" Height="20"
+                                                              HorizontalAlignment="Center"
+                                                              Foreground="{DynamicResource SecondaryHueMidBrush}" />
+                                    <TextBlock Text="Explanation" HorizontalAlignment="Center" FontSize="10" />
+                                </StackPanel>
+                            </TabItem.Header>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="4">
+                                <TextBlock Text="{Binding CurrentExplanation, FallbackValue='Select a step to see its explanation.'}"
+                                           TextWrapping="Wrap" FontSize="13" LineHeight="22"
+                                           Foreground="{DynamicResource MaterialDesignBody}" />
+                            </ScrollViewer>
+                        </TabItem>
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel>
+                                    <materialDesign:PackIcon Kind="CommentQuestionOutline" Width="20" Height="20"
+                                                              HorizontalAlignment="Center"
+                                                              Foreground="{DynamicResource SecondaryHueMidBrush}" />
+                                    <TextBlock Text="Q&amp;A" HorizontalAlignment="Center" FontSize="10" />
+                                </StackPanel>
+                            </TabItem.Header>
+                            <controls:ChatPanel DataContext="{Binding ChatViewModel}" Margin="4" />
+                        </TabItem>
+                    </TabControl>
                 </materialDesign:Card>
 
                 <!-- Step list card -->

@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SudokuSolver.Vision;
 
 namespace SudokuSolver.App.Services;
 
@@ -11,6 +12,18 @@ public sealed class UserSettings
     public string? ExtractionPrompt { get; set; }
     public double AutoPlaySpeedSeconds { get; set; } = 2.0;
     public bool UseAiAssist { get; set; }
+    public bool SaveChatHistory { get; set; } = true;
+    public List<ChatMessageDto>? RecentChatMessages { get; set; }
+}
+
+/// <summary>
+/// DTO for serializing chat messages to settings.
+/// </summary>
+public sealed class ChatMessageDto
+{
+    public required string Role { get; set; }
+    public required string Content { get; set; }
+    public DateTimeOffset Timestamp { get; set; }
 }
 
 public sealed class UserSettingsService
