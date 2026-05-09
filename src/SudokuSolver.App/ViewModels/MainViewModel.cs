@@ -96,9 +96,17 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
 
+    public ChatViewModel ChatViewModel { get; } = new();
+
     public MainViewModel()
     {
         LoadSettings();
+        InitializeChatViewModel();
+    }
+
+    private void InitializeChatViewModel()
+    {
+        ChatViewModel.InitializeChatService(OllamaUrl, OllamaModel);
     }
 
     private void LoadSettings()
@@ -127,6 +135,9 @@ public partial class MainViewModel : ObservableObject
                 : ExtractionPrompt
         };
         _settingsService.Save(settings);
+
+        // Reinitialize chat service with new settings
+        InitializeChatViewModel();
         StatusMessage = "Settings saved.";
     }
 
@@ -230,6 +241,9 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = _solveResult.IsSolved
                 ? $"Solved in {_solveResult.Steps.Count} steps! Difficulty: {difficulty.Label} {difficulty.StarsDisplay}"
                 : $"Solved {_solveResult.Steps.Count} steps but got stuck. The remaining cells require more advanced techniques.";
+
+            // Update chat context with solve results
+            UpdateChatContext();
         }
         catch (Exception ex)
         {
@@ -239,6 +253,12 @@ public partial class MainViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private void UpdateChatContext()
+    {
+        ChatViewModel.CurrentGrid = CurrentGrid;
+        ChatViewModel.SolveSteps = _solveResult?.Steps;
     }
 
     private async Task TryAiAssistAsync(Grid grid)
