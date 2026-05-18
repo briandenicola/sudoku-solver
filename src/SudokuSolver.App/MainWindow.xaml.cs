@@ -17,7 +17,7 @@ public partial class MainWindow : Window
     private void OnWindowClosing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
         // Auto-save settings and chat history on close
-        ViewModel.SaveSettings();
+        ViewModel.SaveSettingsCommand.Execute(null);
     }
 
     private async void OnLoadImageClick(object sender, RoutedEventArgs e)
@@ -30,6 +30,11 @@ public partial class MainWindow : Window
 
         if (dialog.ShowDialog() == true)
         {
+            // Return to the main puzzle view so the user sees the extraction
+            // progress and the rendered grid, not the Settings/Manual Entry panel.
+            SettingsPanel.Visibility = Visibility.Collapsed;
+            ManualEntryPanel.Visibility = Visibility.Collapsed;
+
             await ViewModel.LoadImageCommand.ExecuteAsync(dialog.FileName);
         }
     }

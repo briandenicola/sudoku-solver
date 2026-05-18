@@ -12,7 +12,7 @@ public class ChatServiceTests
 
         var prompt = ChatService.BuildChatPrompt(question, null, null);
 
-        Assert.Contains("sudoku tutor", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sudoku reference", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains(question, prompt);
         Assert.DoesNotContain("Current puzzle state", prompt);
         Assert.DoesNotContain("Steps completed", prompt);
@@ -96,9 +96,10 @@ public class ChatServiceTests
 
         var prompt = ChatService.BuildChatPrompt(question, null, null);
 
-        Assert.Contains("Guidelines:", prompt);
-        Assert.Contains("encouraging and educational", prompt);
+        Assert.Contains("Rules:", prompt);
+        Assert.Contains("direct, neutral tone", prompt);
         Assert.Contains("R3C7", prompt);  // Cell notation example
+        Assert.DoesNotContain("encouraging", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

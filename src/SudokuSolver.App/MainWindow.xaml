@@ -7,6 +7,7 @@
         xmlns:vm="clr-namespace:SudokuSolver.App.ViewModels"
         Title="Sudoku Solver Tutor"
         Width="1200" Height="800"
+        WindowState="Maximized"
         MinWidth="960" MinHeight="650"
         WindowStartupLocation="CenterScreen"
         Icon="Resources/app.ico"
@@ -87,6 +88,13 @@
                                 <TextBlock Text="Techniques" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+                        <ToggleButton Style="{StaticResource MaterialDesignActionToggleButton}"
+                                      IsChecked="{Binding ShowCandidates}"
+                                      Margin="0,0,8,4"
+                                      ToolTip="Show / hide pencil-mark candidates"
+                                      Width="36" Height="36">
+                            <materialDesign:PackIcon Kind="PencilBoxMultipleOutline" />
+                        </ToggleButton>
                     </WrapPanel>
 
                     <!-- Manual entry (collapsible) -->
@@ -120,12 +128,33 @@
                                      materialDesign:HintAssist.Hint="Server URL"
                                      Margin="0,0,0,12" />
 
-                            <ComboBox Text="{Binding OllamaModel, UpdateSourceTrigger=PropertyChanged}"
+                            <TextBlock Text="Vision Model" FontWeight="Medium" FontSize="12"
+                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                       Margin="0,0,0,4" />
+                            <ComboBox Text="{Binding OllamaVisionModel, UpdateSourceTrigger=PropertyChanged}"
                                       ItemsSource="{Binding AvailableModels}"
                                       IsEditable="True" IsTextSearchEnabled="True"
                                       Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                      materialDesign:HintAssist.Hint="Model"
-                                      Margin="0,0,0,12" />
+                                      materialDesign:HintAssist.Hint="Vision model (e.g. qwen3-vl:latest)"
+                                      Margin="0,0,0,4" />
+                            <TextBlock Text="Used to read digits from puzzle images. Must support image input."
+                                       TextWrapping="Wrap" FontSize="11"
+                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                       Margin="0,0,0,12" />
+
+                            <TextBlock Text="Reasoning Model" FontWeight="Medium" FontSize="12"
+                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                       Margin="0,0,0,4" />
+                            <ComboBox Text="{Binding OllamaReasoningModel, UpdateSourceTrigger=PropertyChanged}"
+                                      ItemsSource="{Binding AvailableModels}"
+                                      IsEditable="True" IsTextSearchEnabled="True"
+                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                      materialDesign:HintAssist.Hint="Reasoning model (e.g. deepseek-r1:14b)"
+                                      Margin="0,0,0,4" />
+                            <TextBlock Text="Used for AI Assist hints and Q&amp;A chat. Reasoning-focused models work best."
+                                       TextWrapping="Wrap" FontSize="11"
+                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                       Margin="0,0,0,12" />
 
                             <DockPanel Margin="0,0,0,12">
                                 <Button Command="{Binding TestConnectionCommand}"
@@ -141,6 +170,29 @@
                                 <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center"
                                            TextWrapping="Wrap" FontSize="12" />
                             </DockPanel>
+
+                            <Separator Margin="0,0,0,12" />
+
+                            <DockPanel Margin="0,0,0,12">
+                                <TextBlock Text="Request Timeout"
+                                           FontWeight="Medium"
+                                           VerticalAlignment="Center"
+                                           DockPanel.Dock="Left" />
+                                <TextBlock VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Margin="8,0,0,0" FontSize="12"
+                                           Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                           Text="{Binding OllamaTimeoutSeconds, StringFormat='{}{0}s'}" />
+                            </DockPanel>
+                            <Slider Minimum="30" Maximum="600"
+                                    Value="{Binding OllamaTimeoutSeconds}"
+                                    TickFrequency="30" IsSnapToTickEnabled="True"
+                                    Style="{StaticResource MaterialDesignDiscreteSlider}"
+                                    Margin="0,0,0,4" />
+                            <TextBlock Text="How long to wait for Ollama responses. Large vision models can take 2–5 minutes."
+                                       TextWrapping="Wrap" FontSize="11"
+                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
+                                       Margin="0,0,0,12" />
 
                             <Separator Margin="0,0,0,12" />
 
@@ -267,6 +319,7 @@
                         </TabItem.Header>
                         <controls:SudokuGridControl
                             GridData="{Binding CurrentGrid}"
+                            ShowCandidates="{Binding ShowCandidates}"
                             HighlightedPatternCells="{Binding HighlightedPatternCells}"
                             HighlightedAffectedCells="{Binding HighlightedAffectedCells}"
                             HighlightedCandidates="{Binding HighlightedCandidates}"
@@ -296,8 +349,9 @@
             <Grid Grid.Column="2" Margin="8,0,0,0">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="2*" />
+                    <RowDefinition Height="2*" MinHeight="200" />
+                    <RowDefinition Height="6" />
+                    <RowDefinition Height="1*" MinHeight="120" />
                 </Grid.RowDefinitions>
 
                 <!-- Difficulty rating -->
@@ -352,7 +406,11 @@
                 </materialDesign:Card>
 
                 <!-- Step list card -->
-                <materialDesign:Card Grid.Row="2" Padding="12" materialDesign:ElevationAssist.Elevation="Dp1">
+                <GridSplitter Grid.Row="2" Height="6" HorizontalAlignment="Stretch"
+                              VerticalAlignment="Center" Background="Transparent"
+                              ShowsPreview="True" ResizeBehavior="PreviousAndNext" />
+
+                <materialDesign:Card Grid.Row="3" Padding="12" materialDesign:ElevationAssist.Elevation="Dp1">
                     <DockPanel>
                         <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="4,0,0,8">
                             <materialDesign:PackIcon Kind="FormatListNumbered" Margin="0,0,8,0"

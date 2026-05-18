@@ -8,7 +8,17 @@ namespace SudokuSolver.App.Services;
 public sealed class UserSettings
 {
     public string OllamaUrl { get; set; } = "http://localhost:11434";
-    public string OllamaModel { get; set; } = "gemma4";
+
+    /// <summary>Legacy single-model field. Kept for backward-compat when loading older settings.</summary>
+    public string? OllamaModel { get; set; }
+
+    /// <summary>Model used for image extraction. Must support vision input.</summary>
+    public string OllamaVisionModel { get; set; } = "gemma4:26b";
+
+    /// <summary>Model used for AI Assist hints and Q&A chat. Reasoning-focused models work best.</summary>
+    public string OllamaReasoningModel { get; set; } = "gemma4:26b";
+
+    public int OllamaTimeoutSeconds { get; set; } = 300;
     public string? ExtractionPrompt { get; set; }
     public double AutoPlaySpeedSeconds { get; set; } = 2.0;
     public bool UseAiAssist { get; set; }

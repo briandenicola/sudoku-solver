@@ -54,6 +54,16 @@ public class SudokuGridControl : Control
         DependencyProperty.Register(nameof(SelectedCellColumn), typeof(int), typeof(SudokuGridControl),
             new FrameworkPropertyMetadata(-1, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty ShowCandidatesProperty =
+        DependencyProperty.Register(nameof(ShowCandidates), typeof(bool), typeof(SudokuGridControl),
+            new FrameworkPropertyMetadata(true, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public bool ShowCandidates
+    {
+        get => (bool)GetValue(ShowCandidatesProperty);
+        set => SetValue(ShowCandidatesProperty, value);
+    }
+
     public SudokuGrid? GridData
     {
         get => (SudokuGrid?)GetValue(GridDataProperty);
@@ -142,6 +152,12 @@ public class SudokuGridControl : Control
         var size = Math.Min(ActualWidth, ActualHeight);
         var cellSize = size / 9.0;
 
+        // Guard against zero/degenerate sizes — happens during initial layout passes
+        // or when the control's container is collapsed. FormattedText throws on
+        // emSize <= 0, which would otherwise crash the app.
+        if (cellSize <= 1.0 || double.IsNaN(cellSize) || double.IsInfinity(cellSize))
+            return;
+
         var patternCells = HighlightedPatternCells;
         var affectedCells = HighlightedAffectedCells;
 
@@ -202,8 +218,18 @@ public class SudokuGridControl : Control
                 }
                 else if (!cell.Candidates.IsEmpty)
                 {
-                    DrawCandidates(dc, cell, c * cellSize, r * cellSize, cellSize,
-                        greenCandidates, redCandidates);
+                    // Hide pencil marks when ShowCandidates is off, but still draw
+                    // candidates for this cell if the current solve step highlights
+                    // or eliminates one — otherwise step animations would be invisible.
+                    var cellHasStepHighlight =
+                        greenCandidates.Any(k => k.Row == r && k.Col == c) ||
+                        redCandidates.Any(k => k.Row == r && k.Col == c);
+
+                    if (ShowCandidates || cellHasStepHighlight)
+                    {
+                        DrawCandidates(dc, cell, c * cellSize, r * cellSize, cellSize,
+                            greenCandidates, redCandidates);
+                    }
                 }
             }
         }

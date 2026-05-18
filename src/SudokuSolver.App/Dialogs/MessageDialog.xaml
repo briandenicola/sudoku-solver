@@ -1,0 +1,56 @@
+<Window x:Class="SudokuSolver.App.Dialogs.MessageDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+        Title="Message"
+        Width="560" SizeToContent="Height"
+        MinWidth="420" MaxWidth="720" MaxHeight="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Icon="..\Resources\app.ico"
+        Style="{StaticResource MaterialDesignWindow}"
+        TextElement.Foreground="{DynamicResource MaterialDesignBody}"
+        TextElement.FontSize="13"
+        FontFamily="{DynamicResource MaterialDesignFont}"
+        Background="{DynamicResource MaterialDesignPaper}">
+
+    <DockPanel>
+        <!-- Header (matches HelpWindow's ColorZone style) -->
+        <materialDesign:ColorZone x:Name="HeaderZone" Mode="PrimaryMid" DockPanel.Dock="Top"
+                                  Padding="16,10" materialDesign:ElevationAssist.Elevation="Dp2">
+            <StackPanel Orientation="Horizontal">
+                <materialDesign:PackIcon x:Name="HeaderIcon" Kind="AlertCircleOutline"
+                                          Width="24" Height="24"
+                                          VerticalAlignment="Center" Margin="0,0,12,0" />
+                <TextBlock x:Name="HeaderText" Text="Message" FontSize="18" FontWeight="Medium"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </materialDesign:ColorZone>
+
+        <!-- Footer with OK button -->
+        <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource MaterialDesignDivider}"
+                BorderThickness="0,1,0,0" Padding="16,12">
+            <Button x:Name="OkButton" Content="OK" Click="OnOkClick"
+                    IsDefault="True" IsCancel="True"
+                    Style="{StaticResource MaterialDesignFlatButton}"
+                    HorizontalAlignment="Right" MinWidth="80" />
+        </Border>
+
+        <!-- Body card -->
+        <materialDesign:Card Margin="16" Padding="20"
+                              materialDesign:ElevationAssist.Elevation="Dp1">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" MaxHeight="380">
+                <StackPanel>
+                    <TextBlock x:Name="DetailTitle" FontSize="16" FontWeight="Medium"
+                               TextWrapping="Wrap" Margin="0,0,0,12"
+                               Foreground="{DynamicResource PrimaryHueMidBrush}"
+                               Visibility="Collapsed" />
+                    <TextBlock x:Name="DetailMessage" TextWrapping="Wrap"
+                               FontSize="13" LineHeight="22"
+                               Foreground="{DynamicResource MaterialDesignBody}" />
+                </StackPanel>
+            </ScrollViewer>
+        </materialDesign:Card>
+    </DockPanel>
+</Window>

@@ -1,0 +1,18 @@
+tools:
+    shell:
+        allow:
+            - find *
+            - head *
+            - cd *
+            - dotnet build *
+            - dotnet test *
+            - dotnet list *
+            - git status
+            - git add *
+            - git commit *
+            - git push
+            - grep *
+            - git checkout *
+            - git log *
+            - git push *
+            - git show *

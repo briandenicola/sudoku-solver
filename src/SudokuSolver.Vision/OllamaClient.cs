@@ -51,7 +51,14 @@ public class OllamaClient
         var result = await response.Content.ReadFromJsonAsync<OllamaGenerateResponse>(
             JsonOptions, cancellationToken).ConfigureAwait(false);
 
-        return result?.Response ?? throw new InvalidOperationException("Empty response from Ollama.");
+        var text = result?.Response;
+        if (string.IsNullOrWhiteSpace(text))
+            throw new InvalidOperationException(
+                $"Ollama model '{_settings.Model}' returned an empty response. " +
+                "The model may not support image input, may not be loaded, or may not have understood the request. " +
+                "Try a known-multimodal model such as 'gemma3', 'llava', 'minicpm-v', or 'qwen2.5vl'.");
+
+        return text;
     }
 
     /// <summary>

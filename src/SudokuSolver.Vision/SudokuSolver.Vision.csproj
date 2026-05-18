@@ -4,6 +4,11 @@
     <ProjectReference Include="..\SudokuSolver.Engine\SudokuSolver.Engine.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.*" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.*" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

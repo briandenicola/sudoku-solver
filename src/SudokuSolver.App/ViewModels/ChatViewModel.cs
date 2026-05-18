@@ -40,17 +40,18 @@ public partial class ChatViewModel : ObservableObject
     /// <summary>
     /// Initializes the chat service with Ollama settings.
     /// </summary>
-    public void InitializeChatService(string ollamaUrl, string ollamaModel)
+    public void InitializeChatService(string ollamaUrl, string ollamaModel, int timeoutSeconds = 300)
     {
         try
         {
             var settings = new OllamaSettings
             {
                 BaseUrl = ollamaUrl,
-                Model = ollamaModel
+                Model = ollamaModel,
+                TimeoutSeconds = Math.Max(timeoutSeconds, 1)
             };
 
-            var httpClient = new HttpClient();
+            var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(settings.TimeoutSeconds) };
             var ollamaClient = new OllamaClient(httpClient, settings);
             _chatService = new ChatService(ollamaClient);
             IsChatEnabled = true;

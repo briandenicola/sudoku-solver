@@ -9,7 +9,7 @@ public class OllamaSettings
     public string Model { get; set; } = "gemma4";
 
     /// <summary>Request timeout in seconds.</summary>
-    public int TimeoutSeconds { get; set; } = 120;
+    public int TimeoutSeconds { get; set; } = 300;
 
     /// <summary>Validates that settings are reasonable before use.</summary>
     public void Validate()

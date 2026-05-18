@@ -84,18 +84,24 @@
             </Button>
         </Grid>
 
-        <!-- Messages area -->
+        <!-- Loading indicator (just above input) -->
+        <ProgressBar DockPanel.Dock="Bottom" IsIndeterminate="True"
+                     Visibility="{Binding IsSending, Converter={StaticResource BoolToVis}}"
+                     Margin="0,4,0,0" Height="2" />
+
+        <!-- Messages area (last child — fills remaining space) -->
         <Border BorderBrush="{DynamicResource MaterialDesignDivider}"
-                BorderThickness="0,1,0,1" Margin="0,0,0,8">
+                BorderThickness="0,1,0,1">
             <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="4">
                 <ListBox ItemsSource="{Binding Messages}"
                          BorderThickness="0"
                          Background="Transparent"
                          ItemContainerStyle="{StaticResource MessageItemStyle}"
+                         HorizontalContentAlignment="Stretch"
                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <ContentControl>
+                            <ContentControl Content="{Binding}" HorizontalContentAlignment="Stretch">
                                 <ContentControl.Style>
                                     <Style TargetType="ContentControl">
                                         <Style.Triggers>
@@ -114,10 +120,5 @@
                 </ListBox>
             </ScrollViewer>
         </Border>
-
-        <!-- Loading indicator -->
-        <ProgressBar IsIndeterminate="True"
-                     Visibility="{Binding IsSending, Converter={StaticResource BoolToVis}}"
-                     DockPanel.Dock="Top" Margin="0,0,0,4" Height="2" />
     </DockPanel>
 </UserControl>

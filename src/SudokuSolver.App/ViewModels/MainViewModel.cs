@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using SudokuSolver.App.Dialogs;
 using SudokuSolver.App.Services;
 using SudokuSolver.Engine;
 using SudokuSolver.Engine.Models;
@@ -7,6 +8,7 @@ using SudokuSolver.Vision;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Net.Http;
+using System.Windows;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
 
@@ -75,7 +77,13 @@ public partial class MainViewModel : ObservableObject
     private string ollamaUrl = "http://localhost:11434";
 
     [ObservableProperty]
-    private string ollamaModel = "gemma4";
+    private string ollamaVisionModel = "gemma4:26b";
+
+    [ObservableProperty]
+    private string ollamaReasoningModel = "gemma4:26b";
+
+    [ObservableProperty]
+    private int ollamaTimeoutSeconds = 300;
 
     [ObservableProperty]
     private string extractionPrompt = GridExtractor.DefaultPrompt;
@@ -92,6 +100,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private BitmapImage? puzzleImage;
 
+    [ObservableProperty]
+    private bool showCandidates;
+
     public ObservableCollection<string> AvailableModels { get; } = [];
 
     public ObservableCollection<StepSummaryItem> StepList { get; } = [];
@@ -106,14 +117,25 @@ public partial class MainViewModel : ObservableObject
 
     private void InitializeChatViewModel()
     {
-        ChatViewModel.InitializeChatService(OllamaUrl, OllamaModel);
+        ChatViewModel.InitializeChatService(OllamaUrl, OllamaReasoningModel, OllamaTimeoutSeconds);
     }
 
     private void LoadSettings()
     {
         var settings = _settingsService.Load();
         OllamaUrl = settings.OllamaUrl;
-        OllamaModel = settings.OllamaModel;
+
+        // Migrate from legacy single-model setting: if vision/reasoning weren't
+        // explicitly stored, fall back to the old OllamaModel value.
+        var legacyModel = settings.OllamaModel;
+        OllamaVisionModel = !string.IsNullOrWhiteSpace(settings.OllamaVisionModel)
+            ? settings.OllamaVisionModel
+            : (!string.IsNullOrWhiteSpace(legacyModel) ? legacyModel! : "gemma4:26b");
+        OllamaReasoningModel = !string.IsNullOrWhiteSpace(settings.OllamaReasoningModel)
+            ? settings.OllamaReasoningModel
+            : (!string.IsNullOrWhiteSpace(legacyModel) ? legacyModel! : "gemma4:26b");
+
+        OllamaTimeoutSeconds = settings.OllamaTimeoutSeconds;
         AutoPlaySpeedSeconds = settings.AutoPlaySpeedSeconds;
         UseAiAssist = settings.UseAiAssist;
 
@@ -141,7 +163,9 @@ public partial class MainViewModel : ObservableObject
         var settings = new UserSettings
         {
             OllamaUrl = OllamaUrl,
-            OllamaModel = OllamaModel,
+            OllamaVisionModel = OllamaVisionModel,
+            OllamaReasoningModel = OllamaReasoningModel,
+            OllamaTimeoutSeconds = OllamaTimeoutSeconds,
             AutoPlaySpeedSeconds = AutoPlaySpeedSeconds,
             UseAiAssist = UseAiAssist,
             ExtractionPrompt = ExtractionPrompt == GridExtractor.DefaultPrompt
@@ -186,20 +210,47 @@ public partial class MainViewModel : ObservableObject
             if (result.Success && result.Grid != null)
             {
                 SetPuzzle(result.Grid);
-                StatusMessage = "Puzzle extracted successfully. Click Solve to begin.";
+
+                if (!string.IsNullOrWhiteSpace(result.Warning))
+                {
+                    StatusMessage = "Puzzle loaded with warnings — please review.";
+                    MessageDialog.Show(
+                        result.Warning,
+                        "Extracted puzzle has conflicts",
+                        MessageDialog.Severity.Warning);
+                }
+                else
+                {
+                    StatusMessage = "Puzzle extracted successfully. Click Solve to begin.";
+                }
             }
             else
             {
-                StatusMessage = $"Failed to extract puzzle: {result.ErrorMessage}";
+                var errorText = result.ErrorMessage ?? "Unknown error.";
+                StatusMessage = $"Failed to extract puzzle: {errorText}";
+                MessageDialog.Show(
+                    errorText,
+                    "Could not extract puzzle",
+                    MessageDialog.Severity.Warning,
+                    detailTitle: "The AI was unable to read this puzzle.");
             }
         }
         catch (HttpRequestException ex)
         {
             StatusMessage = $"Could not connect to Ollama: {ex.Message}";
+            MessageDialog.Show(
+                ex.Message,
+                "Connection error",
+                MessageDialog.Severity.Error,
+                detailTitle: "Could not connect to Ollama.");
         }
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
+            MessageDialog.Show(
+                ex.Message,
+                "Error loading image",
+                MessageDialog.Severity.Error);
         }
         finally
         {
@@ -262,6 +313,10 @@ public partial class MainViewModel : ObservableObject
             CurrentStepIndex = -1;
             ClearHighlights();
 
+            // Once a solve has been computed, reveal candidates so the user can
+            // see eliminations and the technique patterns as they step through.
+            ShowCandidates = true;
+
             StatusMessage = _solveResult.IsSolved
                 ? $"Solved in {_solveResult.Steps.Count} steps! Difficulty: {difficulty.Label} {difficulty.StarsDisplay}"
                 : $"Solved {_solveResult.Steps.Count} steps but got stuck. The remaining cells require more advanced techniques.";
@@ -289,13 +344,14 @@ public partial class MainViewModel : ObservableObject
     {
         try
         {
+            var timeoutSeconds = Math.Max(OllamaTimeoutSeconds, 1);
             var settings = new OllamaSettings
             {
                 BaseUrl = OllamaUrl,
-                Model = OllamaModel,
-                TimeoutSeconds = 120
+                Model = OllamaReasoningModel,
+                TimeoutSeconds = timeoutSeconds
             };
-            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(120) };
+            using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
             var client = new OllamaClient(httpClient, settings);
             var aiService = new AiHintService(client);
 
@@ -401,6 +457,9 @@ public partial class MainViewModel : ObservableObject
         DifficultyLabel = "";
         DifficultyStars = "";
         DifficultyBreakdown = "";
+        // Start without pencil marks — let the user choose to reveal candidates
+        // (or auto-reveal once they click Solve so step eliminations are visible).
+        ShowCandidates = false;
     }
 
     private void ReplayToStep(int targetStep)
@@ -490,16 +549,22 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task TestConnectionAsync()
     {
+        // Capture desired models up-front. Mutating AvailableModels below can
+        // cause the editable ComboBoxes to reset their Text (and therefore the
+        // bound model properties) before validation runs.
+        var desiredVision = OllamaVisionModel;
+        var desiredReasoning = OllamaReasoningModel;
+        var desiredUrl = OllamaUrl;
+
         IsTestingConnection = true;
         ConnectionStatus = "Testing connection...";
-        AvailableModels.Clear();
 
         try
         {
             var settings = new OllamaSettings
             {
-                BaseUrl = OllamaUrl,
-                Model = OllamaModel,
+                BaseUrl = desiredUrl,
+                Model = string.IsNullOrWhiteSpace(desiredVision) ? desiredReasoning : desiredVision,
                 TimeoutSeconds = 10
             };
             settings.Validate();
@@ -508,19 +573,34 @@ public partial class MainViewModel : ObservableObject
             var client = new OllamaClient(httpClient, settings);
             var models = await client.ListModelsAsync().ConfigureAwait(true);
 
+            AvailableModels.Clear();
             foreach (var model in models.OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
                 AvailableModels.Add(model);
 
-            var modelMatch = models.Any(m =>
-                m.StartsWith(OllamaModel, StringComparison.OrdinalIgnoreCase));
+            // Restore selections — clearing/repopulating ItemsSource can wipe
+            // the editable ComboBox text when the previously selected item is
+            // momentarily absent from the collection.
+            OllamaVisionModel = desiredVision;
+            OllamaReasoningModel = desiredReasoning;
 
-            if (modelMatch)
+            bool ModelExists(string name) =>
+                !string.IsNullOrWhiteSpace(name) &&
+                models.Any(m => m.StartsWith(name, StringComparison.OrdinalIgnoreCase));
+
+            var visionOk = ModelExists(desiredVision);
+            var reasoningOk = ModelExists(desiredReasoning);
+
+            var missing = new List<string>();
+            if (!visionOk) missing.Add($"vision: '{desiredVision}'");
+            if (!reasoningOk) missing.Add($"reasoning: '{desiredReasoning}'");
+
+            if (missing.Count == 0)
             {
-                ConnectionStatus = $"✅ Connected — model '{OllamaModel}' is available. {models.Count} model(s) found.";
+                ConnectionStatus = $"✅ Connected — both models available. {models.Count} model(s) found.";
             }
             else
             {
-                ConnectionStatus = $"⚠️ Connected ({models.Count} model(s) found), but '{OllamaModel}' is not installed. Select one from the list or pull it with: ollama pull {OllamaModel}";
+                ConnectionStatus = $"⚠️ Connected ({models.Count} model(s) found), but missing — {string.Join("; ", missing)}. Select from the dropdown or pull with: ollama pull <name>";
             }
         }
         catch (InvalidOperationException ex)
@@ -529,11 +609,11 @@ public partial class MainViewModel : ObservableObject
         }
         catch (HttpRequestException ex)
         {
-            ConnectionStatus = $"❌ Cannot reach Ollama at {OllamaUrl}: {ex.Message}";
+            ConnectionStatus = $"❌ Cannot reach Ollama at {desiredUrl}: {ex.Message}";
         }
         catch (TaskCanceledException)
         {
-            ConnectionStatus = $"❌ Connection timed out. Is Ollama running at {OllamaUrl}?";
+            ConnectionStatus = $"❌ Connection timed out. Is Ollama running at {desiredUrl}?";
         }
         catch (Exception ex)
         {
@@ -547,12 +627,14 @@ public partial class MainViewModel : ObservableObject
 
     private void EnsureExtractor()
     {
+        var timeoutSeconds = Math.Max(OllamaTimeoutSeconds, 1);
         var settings = new OllamaSettings
         {
             BaseUrl = OllamaUrl,
-            Model = OllamaModel
+            Model = OllamaVisionModel,
+            TimeoutSeconds = timeoutSeconds
         };
-        var httpClient = new HttpClient();
+        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
         var ollamaClient = new OllamaClient(httpClient, settings);
         var prompt = string.IsNullOrWhiteSpace(ExtractionPrompt) ? null : ExtractionPrompt;
         _extractor = new GridExtractor(ollamaClient, prompt);
