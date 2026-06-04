@@ -6,7 +6,7 @@ namespace SudokuSolver.Vision;
 public class OllamaSettings
 {
     public string BaseUrl { get; set; } = "http://localhost:11434";
-    public string Model { get; set; } = "gemma4";
+    public string Model { get; set; } = "qwen3-vl:30b";
 
     /// <summary>Request timeout in seconds.</summary>
     public int TimeoutSeconds { get; set; } = 300;
