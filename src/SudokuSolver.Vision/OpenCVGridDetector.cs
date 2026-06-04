@@ -94,23 +94,27 @@ public static class OpenCVGridDetector
         double bestArea = 0;
         const double minArea = 10000; // Minimum area for a valid grid
 
+        // Try multiple epsilon values — some images need more aggressive simplification
+        double[] epsilonFactors = [0.02, 0.03, 0.04];
+
         foreach (var contour in contours)
         {
             var area = Cv2.ContourArea(contour);
             if (area < minArea)
                 continue;
 
-            // Approximate contour to polygon
-            var epsilon = Cv2.ArcLength(contour, true) * 0.02;
-            var approx = Cv2.ApproxPolyDP(contour, epsilon, true);
+            var arcLength = Cv2.ArcLength(contour, true);
 
-            // Look for quadrilaterals (4 corners)
-            if (approx.Length == 4)
+            foreach (var factor in epsilonFactors)
             {
-                if (area > bestArea)
+                var epsilon = arcLength * factor;
+                var approx = Cv2.ApproxPolyDP(contour, epsilon, true);
+
+                if (approx.Length == 4 && area > bestArea)
                 {
                     bestArea = area;
                     bestContour = approx.Select(p => new Point2f(p.X, p.Y)).ToArray();
+                    break; // Found a quad for this contour, move to next
                 }
             }
         }
