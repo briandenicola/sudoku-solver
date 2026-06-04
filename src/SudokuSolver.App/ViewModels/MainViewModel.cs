@@ -77,10 +77,13 @@ public partial class MainViewModel : ObservableObject
     private string ollamaUrl = "http://localhost:11434";
 
     [ObservableProperty]
-    private string ollamaVisionModel = "gemma4:26b";
+    private string ollamaVisionModel = "qwen3-vl:30b";
 
     [ObservableProperty]
     private string ollamaReasoningModel = "gemma4:26b";
+
+    [ObservableProperty]
+    private string ollamaCellModel = "gemma4";
 
     [ObservableProperty]
     private int ollamaTimeoutSeconds = 300;
@@ -134,6 +137,9 @@ public partial class MainViewModel : ObservableObject
         OllamaReasoningModel = !string.IsNullOrWhiteSpace(settings.OllamaReasoningModel)
             ? settings.OllamaReasoningModel
             : (!string.IsNullOrWhiteSpace(legacyModel) ? legacyModel! : "gemma4:26b");
+        OllamaCellModel = !string.IsNullOrWhiteSpace(settings.OllamaCellModel)
+            ? settings.OllamaCellModel
+            : "gemma4";
 
         OllamaTimeoutSeconds = settings.OllamaTimeoutSeconds;
         AutoPlaySpeedSeconds = settings.AutoPlaySpeedSeconds;
@@ -165,6 +171,7 @@ public partial class MainViewModel : ObservableObject
             OllamaUrl = OllamaUrl,
             OllamaVisionModel = OllamaVisionModel,
             OllamaReasoningModel = OllamaReasoningModel,
+            OllamaCellModel = OllamaCellModel,
             OllamaTimeoutSeconds = OllamaTimeoutSeconds,
             AutoPlaySpeedSeconds = AutoPlaySpeedSeconds,
             UseAiAssist = UseAiAssist,
@@ -636,8 +643,19 @@ public partial class MainViewModel : ObservableObject
         };
         var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
         var ollamaClient = new OllamaClient(httpClient, settings);
+
+        // Create a separate fast client for per-cell digit classification
+        var cellSettings = new OllamaSettings
+        {
+            BaseUrl = OllamaUrl,
+            Model = OllamaCellModel,
+            TimeoutSeconds = 30
+        };
+        var cellHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        var cellClient = new OllamaClient(cellHttpClient, cellSettings);
+
         var prompt = string.IsNullOrWhiteSpace(ExtractionPrompt) ? null : ExtractionPrompt;
-        _extractor = new GridExtractor(ollamaClient, prompt);
+        _extractor = new GridExtractor(ollamaClient, cellClient, prompt);
     }
 
     private static BitmapImage LoadBitmapImage(string filePath)

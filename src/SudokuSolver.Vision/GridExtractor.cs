@@ -13,12 +13,31 @@ namespace SudokuSolver.Vision;
 public partial class GridExtractor
 {
     private readonly OllamaClient _client;
+    private readonly OllamaClient? _cellClient;
 
+    /// <summary>
+    /// Creates a GridExtractor that uses the same client for full-image and cell classification.
+    /// </summary>
     public GridExtractor(OllamaClient client, string? customPrompt = null)
     {
         _client = client;
+        _cellClient = null;
         _customPrompt = customPrompt;
     }
+
+    /// <summary>
+    /// Creates a GridExtractor with separate clients for full-image (large model) and
+    /// per-cell classification (small/fast model). This dramatically improves speed
+    /// since the cell model only needs to identify single digits.
+    /// </summary>
+    public GridExtractor(OllamaClient fullImageClient, OllamaClient cellClassificationClient, string? customPrompt = null)
+    {
+        _client = fullImageClient;
+        _cellClient = cellClassificationClient;
+        _customPrompt = customPrompt;
+    }
+
+    private OllamaClient CellClient => _cellClient ?? _client;
 
     private readonly string? _customPrompt;
 
@@ -130,11 +149,19 @@ public partial class GridExtractor
                 {
                     var cell = cells[row][col];
                     var preprocessed = CellExtractor.PreprocessCell(cell);
+
+                    // Skip cells that appear empty — no need to call the LLM
+                    if (!CellExtractor.HasDigit(preprocessed))
+                    {
+                        values[row * 9 + col] = 0;
+                        responses.Add("(empty)");
+                        continue;
+                    }
+
                     var cellBase64 = CellExtractor.MatToBase64(preprocessed);
 
-                    // Ask LLM to classify this single cell
-                    var prompt = CellDigitPrompt;
-                    var response = await _client.GenerateAsync(prompt, cellBase64, cancellationToken)
+                    // Use the cell-specific client (smaller/faster model)
+                    var response = await CellClient.GenerateAsync(CellDigitPrompt, cellBase64, cancellationToken)
                         .ConfigureAwait(false);
 
                     var digit = ParseSingleDigit(response ?? string.Empty);

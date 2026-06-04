@@ -13,10 +13,13 @@ public sealed class UserSettings
     public string? OllamaModel { get; set; }
 
     /// <summary>Model used for image extraction. Must support vision input.</summary>
-    public string OllamaVisionModel { get; set; } = "gemma4:26b";
+    public string OllamaVisionModel { get; set; } = "qwen3-vl:30b";
 
     /// <summary>Model used for AI Assist hints and Q&A chat. Reasoning-focused models work best.</summary>
     public string OllamaReasoningModel { get; set; } = "gemma4:26b";
+
+    /// <summary>Small/fast model for per-cell digit classification in the hybrid extraction pipeline.</summary>
+    public string OllamaCellModel { get; set; } = "gemma4";
 
     public int OllamaTimeoutSeconds { get; set; } = 300;
     public string? ExtractionPrompt { get; set; }
