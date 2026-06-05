@@ -16,3 +16,5 @@ tools:
             - git log *
             - git push *
             - git show *
+            - ls *
+            - git diff *
