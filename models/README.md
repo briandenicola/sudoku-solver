@@ -16,7 +16,7 @@ pip install torch torchvision onnx
 python train_digit_model.py
 ```
 
-This trains a simple CNN on MNIST (~99.3% accuracy) and exports `mnist-cnn.onnx`.
+This trains a simple CNN on MNIST (~99.3% accuracy) and exports `mnist-cnn.onnx`.  Read [this document](./docs/cnn_vs_vlm.md) for details on why a CNN is used and how it compares to VLMs for this task.
 
 ## Model Requirements
 
