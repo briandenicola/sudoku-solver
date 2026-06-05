@@ -28,4 +28,11 @@
     <Resource Include="Resources\app.ico" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\..\models\mnist-cnn.onnx" Condition="Exists('..\..\models\mnist-cnn.onnx')">
+      <Link>Models\mnist-cnn.onnx</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

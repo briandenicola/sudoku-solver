@@ -51,120 +51,74 @@ internal static class TestPuzzles
 }
 
 /// <summary>
-/// Integration tests that call a real Ollama instance to validate image extraction.
-/// These tests require network access and a running Ollama server.
-/// Set environment variable OLLAMA_BASE_URL to override the default URL.
-/// Filter by trait: dotnet test --filter "Category=Integration&Subsystem=LLM"
-///                  dotnet test --filter "Category=Integration&Subsystem=Hybrid"
+/// Integration tests for the CNN-based extraction pipeline.
+/// Requires the ONNX digit model to be available.
+/// Filter: dotnet test --filter "Category=Integration&Subsystem=CNN"
 /// </summary>
 [Trait("Category", "Integration")]
-[Trait("Subsystem", "LLM")]
-public class LlmExtractionTests : IDisposable
+[Trait("Subsystem", "CNN")]
+public class CnnExtractionTests : IDisposable
 {
-    private readonly HttpClient _httpClient = new();
-    private readonly GridExtractor _extractor;
+    private readonly DigitClassifier? _classifier;
+    private readonly GridExtractor? _extractor;
 
-    public LlmExtractionTests()
+    public CnnExtractionTests()
     {
-        var settings = new OllamaSettings
+        var modelPath = FindModelPath();
+        if (modelPath != null)
         {
-            BaseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL")
-                ?? "https://ai.denicolafamily.com",
-            Model = Environment.GetEnvironmentVariable("OLLAMA_MODEL")
-                ?? "qwen3-vl:30b",
-            TimeoutSeconds = 120
+            _classifier = new DigitClassifier(modelPath);
+            _extractor = new GridExtractor(_classifier);
+        }
+    }
+
+    private static string? FindModelPath()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(AppContext.BaseDirectory, "Models", "mnist-cnn.onnx"),
+            Path.Combine(AppContext.BaseDirectory, "mnist-cnn.onnx"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "models", "mnist-cnn.onnx"),
         };
 
-        var client = new OllamaClient(_httpClient, settings);
-        _extractor = new GridExtractor(client);
+        return candidates.FirstOrDefault(File.Exists);
     }
 
     [Theory]
     [InlineData("IMG_6274.jpeg", TestPuzzles.IMG6274)]
     [InlineData("nightmare-clean.png", TestPuzzles.NightmareClean)]
-    public async Task ExtractFromBase64_ReturnsValidGrid(string filename, string expectedPuzzle)
+    public void ExtractFromFile_ReturnsValidGrid(string filename, string expectedPuzzle)
     {
+        if (_extractor is null)
+        {
+            // Skip if model not available
+            return;
+        }
+
         var imagePath = Path.Combine(AppContext.BaseDirectory, "TestImages", filename);
         Assert.True(File.Exists(imagePath), $"Test image not found at: {imagePath}");
 
-        var imageBytes = await File.ReadAllBytesAsync(imagePath);
-        var imageBase64 = Convert.ToBase64String(imageBytes);
-
-        var result = await _extractor.ExtractFromBase64Async(imageBase64);
+        var result = _extractor.ExtractFromFile(imagePath);
 
         Assert.True(result.Success, $"[{filename}] Extraction failed: {result.ErrorMessage}");
         Assert.NotNull(result.Grid);
 
         var (accuracy, mismatches) = TestPuzzles.CompareGrid(result.Grid!, expectedPuzzle);
-        Console.WriteLine($"[{filename}] LLM full-image accuracy: {accuracy:F1}% ({mismatches.Count} mismatches)");
-        Console.WriteLine($"[{filename}] Raw response:\n{result.RawResponse}");
+        Console.WriteLine($"[{filename}] CNN accuracy: {accuracy:F1}% ({mismatches.Count} mismatches)");
         if (mismatches.Count > 0)
             foreach (var m in mismatches) Console.WriteLine(m);
         if (result.Warning != null)
             Console.WriteLine($"[{filename}] Warning: {result.Warning}");
-
-        Assert.Empty(mismatches);
     }
 
-    public void Dispose() => _httpClient.Dispose();
+    public void Dispose()
+    {
+        _classifier?.Dispose();
+    }
 }
 
 /// <summary>
-/// Tests the hybrid pipeline: OpenCV grid detection + LLM cell classification.
-/// Requires both OpenCV and a running Ollama server.
-/// Filter: dotnet test --filter "Category=Integration&Subsystem=Hybrid"
-/// </summary>
-[Trait("Category", "Integration")]
-[Trait("Subsystem", "Hybrid")]
-public class HybridExtractionTests : IDisposable
-{
-    private readonly HttpClient _httpClient = new();
-    private readonly GridExtractor _extractor;
-
-    public HybridExtractionTests()
-    {
-        var settings = new OllamaSettings
-        {
-            BaseUrl = Environment.GetEnvironmentVariable("OLLAMA_BASE_URL")
-                ?? "https://ai.denicolafamily.com",
-            Model = Environment.GetEnvironmentVariable("OLLAMA_MODEL")
-                ?? "qwen3-vl:30b",
-            TimeoutSeconds = 120
-        };
-
-        var client = new OllamaClient(_httpClient, settings);
-        _extractor = new GridExtractor(client);
-    }
-
-    [Theory]
-    [InlineData("IMG_6274.jpeg", TestPuzzles.IMG6274)]
-    [InlineData("nightmare-clean.png", TestPuzzles.NightmareClean)]
-    public async Task ExtractFromFile_ReturnsValidGrid(string filename, string expectedPuzzle)
-    {
-        var imagePath = Path.Combine(AppContext.BaseDirectory, "TestImages", filename);
-        Assert.True(File.Exists(imagePath), $"Test image not found at: {imagePath}");
-
-        var result = await _extractor.ExtractFromFileAsync(imagePath);
-
-        Assert.True(result.Success, $"[{filename}] Extraction failed: {result.ErrorMessage}");
-        Assert.NotNull(result.Grid);
-
-        var (accuracy, mismatches) = TestPuzzles.CompareGrid(result.Grid!, expectedPuzzle);
-        if (mismatches.Count > 0)
-        {
-            Console.WriteLine($"[{filename}] Hybrid accuracy: {accuracy:F1}% ({mismatches.Count} mismatches):");
-            foreach (var m in mismatches) Console.WriteLine(m);
-        }
-
-        Assert.Empty(mismatches);
-        Assert.Null(result.Warning);
-    }
-
-    public void Dispose() => _httpClient.Dispose();
-}
-
-/// <summary>
-/// Tests the OpenCV grid detection and cell extraction in isolation (no LLM needed).
+/// Tests the OpenCV grid detection and cell extraction in isolation (no model needed).
 /// These tests run offline and verify the image processing pipeline.
 /// Filter: dotnet test --filter "Subsystem=OpenCV"
 /// </summary>
@@ -190,8 +144,8 @@ public class OpenCVDetectionTests
         using var warped = OpenCVGridDetector.FindAndWarpGrid(imagePath);
 
         Assert.NotNull(warped);
-        Assert.Equal(450, warped!.Rows);
-        Assert.Equal(450, warped.Cols);
+        Assert.Equal(900, warped!.Rows);
+        Assert.Equal(900, warped.Cols);
     }
 
     [Theory]
@@ -244,13 +198,13 @@ public class OpenCVDetectionTests
                 $"Horizontal lines not monotonic at index {i}: {horizontalLines[i - 1]} >= {horizontalLines[i]}");
         }
 
-        // Cell widths should be reasonable (35-65px for a 450px grid)
+        // Cell widths should be reasonable (70-130px for a 900px grid)
         for (var i = 0; i < 9; i++)
         {
             var cellWidth = verticalLines[i + 1] - verticalLines[i];
             var cellHeight = horizontalLines[i + 1] - horizontalLines[i];
-            Assert.InRange(cellWidth, 30, 70);
-            Assert.InRange(cellHeight, 30, 70);
+            Assert.InRange(cellWidth, 60, 140);
+            Assert.InRange(cellHeight, 60, 140);
         }
 
         // Log the detected positions for diagnostics

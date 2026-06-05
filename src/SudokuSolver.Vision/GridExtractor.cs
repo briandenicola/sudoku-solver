@@ -1,64 +1,52 @@
-using System.Text.RegularExpressions;
 using OpenCvSharp;
 using SudokuSolver.Engine.Models;
 
 namespace SudokuSolver.Vision;
 
 /// <summary>
-/// Extracts a sudoku grid from an image using a hybrid approach:
-/// 1. OpenCV for robust grid detection and perspective correction
-/// 2. Individual cell extraction and LLM classification for digits
-/// 3. Falls back to legacy full-image LLM method if OpenCV fails
+/// Extracts a sudoku grid from an image using OpenCV for grid detection
+/// and a local ONNX CNN model for digit classification.
+/// No LLM/network dependency required for extraction.
 /// </summary>
-public partial class GridExtractor
+public class GridExtractor
 {
-    private readonly OllamaClient _client;
-    private readonly OllamaClient? _cellClient;
+    private readonly DigitClassifier _classifier;
 
     /// <summary>
-    /// Creates a GridExtractor that uses the same client for full-image and cell classification.
+    /// Creates a GridExtractor using a local CNN digit classifier.
     /// </summary>
-    public GridExtractor(OllamaClient client, string? customPrompt = null)
+    public GridExtractor(DigitClassifier classifier)
     {
-        _client = client;
-        _cellClient = null;
-        _customPrompt = customPrompt;
+        _classifier = classifier ?? throw new ArgumentNullException(nameof(classifier));
     }
 
     /// <summary>
-    /// Creates a GridExtractor with separate clients for full-image (large model) and
-    /// per-cell classification (small/fast model). This dramatically improves speed
-    /// since the cell model only needs to identify single digits.
-    /// </summary>
-    public GridExtractor(OllamaClient fullImageClient, OllamaClient cellClassificationClient, string? customPrompt = null)
-    {
-        _client = fullImageClient;
-        _cellClient = cellClassificationClient;
-        _customPrompt = customPrompt;
-    }
-
-    private OllamaClient CellClient => _cellClient ?? _client;
-
-    private readonly string? _customPrompt;
-
-    private const string CellDigitPrompt = "What digit (0-9) is written in this image? " +
-        "Reply with ONLY a single digit, no other text. Use 0 for empty cells.";
-
-    /// <summary>
-    /// Extracts a sudoku grid from an image file using the hybrid approach.
+    /// Extracts a sudoku grid from an image file.
+    /// Uses OpenCV for grid detection and CNN for digit classification.
     /// </summary>
     /// <param name="imagePath">Path to the image file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The extracted grid.</returns>
-    public async Task<GridExtractionResult> ExtractFromFileAsync(string imagePath,
+    public Task<GridExtractionResult> ExtractFromFileAsync(string imagePath,
         CancellationToken cancellationToken = default)
+    {
+        if (!File.Exists(imagePath))
+            throw new FileNotFoundException("Image file not found.", imagePath);
+
+        // Run extraction on a background thread since OpenCV + CNN are CPU-bound
+        return Task.Run(() => ExtractFromFile(imagePath), cancellationToken);
+    }
+
+    /// <summary>
+    /// Synchronous extraction from an image file.
+    /// </summary>
+    public GridExtractionResult ExtractFromFile(string imagePath)
     {
         if (!File.Exists(imagePath))
             throw new FileNotFoundException("Image file not found.", imagePath);
 
         try
         {
-            // Try OpenCV approach first
             Mat? warpedGrid = null;
             try
             {
@@ -66,51 +54,32 @@ public partial class GridExtractor
             }
             catch (Exception ex)
             {
-                // OpenCV failed - log and fall back to full image
-                System.Diagnostics.Debug.WriteLine($"OpenCV grid detection failed: {ex.Message}");
+                return GridExtractionResult.Failed(
+                    $"Grid detection failed: {ex.Message}. " +
+                    "Ensure the image contains a clearly visible sudoku grid.",
+                    string.Empty);
             }
 
-            GridExtractionResult? result = null;
-
-            if (warpedGrid != null)
+            if (warpedGrid == null)
             {
-                try
-                {
-                    // OpenCV found the grid - extract cells and classify each
-                    var cells = OpenCVGridDetector.ExtractCells(warpedGrid);
-                    result = await ExtractUsingCellClassification(cells, cancellationToken)
-                        .ConfigureAwait(false);
-                }
-                catch (Exception ex)
-                {
-                    // Cell extraction failed - fall back to full image
-                    System.Diagnostics.Debug.WriteLine($"Cell extraction failed: {ex.Message}");
-                }
-                finally
-                {
-                    warpedGrid.Dispose();
-                }
+                return GridExtractionResult.Failed(
+                    "Could not detect a sudoku grid in the image. " +
+                    "Ensure the puzzle is clearly visible with good contrast and minimal obstructions.",
+                    string.Empty);
             }
 
-            if (result is not null && !result.Success)
+            try
             {
-                // Hybrid extraction failed, but we still want to try fallback
-                result = null;
+                var cells = OpenCVGridDetector.ExtractCells(warpedGrid);
+                return ClassifyCells(cells);
             }
-
-            if (result is null)
+            finally
             {
-                // Fallback: send full image to LLM
-                var imageBytes = await File.ReadAllBytesAsync(imagePath, cancellationToken);
-                var imageBase64 = Convert.ToBase64String(imageBytes);
-                result = await ExtractFromBase64Async(imageBase64, cancellationToken).ConfigureAwait(false);
+                warpedGrid.Dispose();
             }
-
-            return result;
         }
         catch (Exception ex)
         {
-            // Any unexpected exception - return a clear error
             return GridExtractionResult.Failed(
                 $"Unexpected error during extraction: {ex.GetType().Name}: {ex.Message}",
                 string.Empty);
@@ -118,88 +87,64 @@ public partial class GridExtractor
     }
 
     /// <summary>
-    /// Extracts a sudoku grid from a base64-encoded image using legacy LLM method.
-    /// This is used as a fallback when OpenCV cannot find the grid.
+    /// Classifies individual cells using the CNN digit classifier.
     /// </summary>
-    public async Task<GridExtractionResult> ExtractFromBase64Async(string imageBase64,
-        CancellationToken cancellationToken = default)
-    {
-        var prompt = !string.IsNullOrWhiteSpace(_customPrompt) ? _customPrompt : DefaultPrompt;
-        var rawResponse = await _client.GenerateAsync(prompt, imageBase64, cancellationToken)
-            .ConfigureAwait(false);
-
-        return ParseResponse(rawResponse);
-    }
-
-    /// <summary>
-    /// Uses LLM to classify individual preprocessed cells.
-    /// This is the hybrid approach that provides better accuracy.
-    /// </summary>
-    private async Task<GridExtractionResult> ExtractUsingCellClassification(
-        Mat[][] cells, CancellationToken cancellationToken)
+    private GridExtractionResult ClassifyCells(Mat[][] cells)
     {
         var values = new int[81];
-        var responses = new List<string>(81);
+        var diagnostics = new List<string>(81);
+        var lowConfidenceCells = new List<string>();
 
         for (var row = 0; row < 9; row++)
         {
             for (var col = 0; col < 9; col++)
             {
-                try
+                var cell = cells[row][col];
+                var preprocessed = CellExtractor.PreprocessCell(cell);
+
+                if (!CellExtractor.HasDigit(preprocessed))
                 {
-                    var cell = cells[row][col];
-                    var preprocessed = CellExtractor.PreprocessCell(cell);
-
-                    // Skip cells that appear empty — no need to call the LLM
-                    if (!CellExtractor.HasDigit(preprocessed))
-                    {
-                        values[row * 9 + col] = 0;
-                        responses.Add("(empty)");
-                        continue;
-                    }
-
-                    var cellBase64 = CellExtractor.MatToBase64(preprocessed);
-
-                    // Use the cell-specific client (smaller/faster model)
-                    var response = await CellClient.GenerateAsync(CellDigitPrompt, cellBase64, cancellationToken)
-                        .ConfigureAwait(false);
-
-                    var digit = ParseSingleDigit(response ?? string.Empty);
-                    values[row * 9 + col] = digit;
-                    responses.Add(response ?? string.Empty);
-                }
-                catch (Exception ex)
-                {
-                    // If any cell classification fails, use 0 and continue
                     values[row * 9 + col] = 0;
-                    responses.Add($"Error: {ex.Message}");
+                    diagnostics.Add($"R{row + 1}C{col + 1}: empty");
+                    continue;
+                }
+
+                var (digit, confidence) = _classifier.Classify(preprocessed);
+                values[row * 9 + col] = digit;
+                diagnostics.Add($"R{row + 1}C{col + 1}: {digit} ({confidence:P0})");
+
+                if (digit > 0 && confidence < 0.8f)
+                {
+                    lowConfidenceCells.Add($"R{row + 1}C{col + 1}={digit} ({confidence:P0})");
                 }
             }
         }
 
-        // Parse and validate the extracted values
-        var rawResponse = string.Join("\n", responses);
-        if (!TryExtractValues(values, out var finalValues, out var parseError))
-        {
-            var effectiveError = string.IsNullOrWhiteSpace(parseError)
-                ? "Failed to validate extracted values."
-                : parseError;
-            return GridExtractionResult.Failed(effectiveError, rawResponse);
-        }
+        var rawResponse = string.Join("\n", diagnostics);
 
         try
         {
-            var grid = Grid.FromValues(finalValues);
+            var grid = Grid.FromValues(values);
 
-            var conflict = FindConflict(finalValues);
+            var conflict = FindConflict(values);
             if (conflict is not null)
             {
                 return GridExtractionResult.SucceededWithWarning(
                     grid,
-                    $"The extracted puzzle is not a valid sudoku ({conflict}). " +
-                    "The vision model likely misread some cells. " +
-                    "Please clear out any candidate/pencil marks from the puzzle and upload the image again, " +
-                    "switch to a different vision model, or use Manual Entry to correct the misread cells.",
+                    $"The extracted puzzle has a conflict ({conflict}). " +
+                    "The digit classifier may have misread some cells. " +
+                    "Use Manual Entry to correct any misread cells.",
+                    rawResponse);
+            }
+
+            if (lowConfidenceCells.Count > 0)
+            {
+                return GridExtractionResult.SucceededWithWarning(
+                    grid,
+                    $"Low confidence on {lowConfidenceCells.Count} cell(s): " +
+                    string.Join(", ", lowConfidenceCells.Take(5)) +
+                    (lowConfidenceCells.Count > 5 ? "..." : "") +
+                    ". Please verify these cells are correct.",
                     rawResponse);
             }
 
@@ -208,180 +153,11 @@ public partial class GridExtractor
         catch (Exception ex)
         {
             return GridExtractionResult.Failed(
-                $"Parsed digits but failed to create grid: {ex.Message}", rawResponse);
+                $"Classified digits but failed to create grid: {ex.Message}", rawResponse);
         }
     }
 
-    /// <summary>
-    /// Parses a single digit from LLM response for a cell.
-    /// </summary>
-    private static int ParseSingleDigit(string response)
-    {
-        var digitMatch = System.Text.RegularExpressions.Regex.Match(
-            response, @"\d", System.Text.RegularExpressions.RegexOptions.Singleline);
-        if (digitMatch.Success)
-        {
-            var digit = digitMatch.Value[0] - '0';
-            if (digit is >= 0 and <= 9)
-                return digit;
-        }
-        return 0; // Empty cell
-    }
-
-    private static bool TryExtractValues(int[] initialValues, out int[] values, out string error)
-    {
-        values = initialValues;
-        error = "";
-        
-        // Check for conflicts (duplicates in row/column/box)
-        var conflict = FindConflict(initialValues);
-        if (conflict is not null)
-        {
-            // Return with warning - the conflict check is done in ExtractUsingCellClassification
-            error = conflict;
-        }
-
-        return true;
-    }
-
-    internal static GridExtractionResult ParseResponse(string response)
-    {
-        if (!TryExtractValuesLegacy(response, out var values, out var parseError))
-        {
-            var excerpt = Excerpt(response, 800);
-            return GridExtractionResult.Failed(
-                $"{parseError}\n\n--- Raw model response (first 800 chars) ---\n{excerpt}",
-                response);
-        }
-
-        Grid grid;
-        try
-        {
-            grid = Grid.FromValues(values!);
-        }
-        catch (Exception ex)
-        {
-            return GridExtractionResult.Failed($"Parsed digits but failed to create grid: {ex.Message}", response);
-        }
-
-        var conflict = FindConflict(values!);
-        if (conflict is not null)
-        {
-            return GridExtractionResult.SucceededWithWarning(
-                grid,
-                $"The extracted puzzle is not a valid sudoku ({conflict}). " +
-                "The vision model likely misread some cells. " +
-                "Please clear out any candidate/pencil marks from the puzzle and upload the image again, " +
-                "switch to a different vision model, or use Manual Entry to correct the misread cells.",
-                response);
-        }
-
-        return GridExtractionResult.Succeeded(grid, response);
-    }
-
-    private static bool TryExtractValuesLegacy(string response, out int[]? values, out string error)
-    {
-        values = null;
-
-        // Strategy 1: 9 lines that each contain 9 digits (current/strict format).
-        var lines = DigitLineRegex().Matches(response);
-        if (lines.Count >= 9)
-        {
-            var v = new int[81];
-            for (var row = 0; row < 9; row++)
-            {
-                var digits = lines[row].Value.Where(char.IsDigit).ToArray();
-                for (var col = 0; col < 9; col++)
-                    v[row * 9 + col] = digits[col] - '0';
-            }
-            values = v;
-            error = "";
-            return true;
-        }
-
-        // Strategy 2: markdown / pipe table — split by lines, drop separator rows, keep
-        // any line with at least 9 non-empty cells (digit or blank between pipes).
-        var tableValues = TryParsePipeTable(response);
-        if (tableValues is not null)
-        {
-            values = tableValues;
-            error = "";
-            return true;
-        }
-
-        // Strategy 3: any 81 digits in the response, in order. Common with OCR models
-        // that don't preserve row structure or dump everything on one line.
-        var allDigits = response.Where(char.IsDigit).ToArray();
-        if (allDigits.Length == 81)
-        {
-            var v = new int[81];
-            for (var i = 0; i < 81; i++) v[i] = allDigits[i] - '0';
-            values = v;
-            error = "";
-            return true;
-        }
-
-        error = $"Could not parse a 9x9 grid from response. " +
-            $"Strict 9-rows-of-9 match found {lines.Count} matching lines; " +
-            $"total digits in response: {allDigits.Length} (need exactly 81).";
-        return false;
-    }
-
-    private static int[]? TryParsePipeTable(string response)
-    {
-        // Pipe-table row example: `| 5 | 3 |   |   | 7 |   |   |   |   |`
-        var rows = new List<int[]>();
-        foreach (var rawLine in response.Split('\n'))
-        {
-            var line = rawLine.Trim();
-            if (!line.Contains('|')) continue;
-
-            // Skip markdown separator rows like |---|---|...
-            if (line.Replace("|", "").Replace("-", "").Replace(":", "").Replace(" ", "") == "")
-                continue;
-
-            var cells = line.Trim('|').Split('|');
-            if (cells.Length < 9) continue;
-
-            var rowValues = new int[9];
-            var ok = true;
-            for (var c = 0; c < 9; c++)
-            {
-                var cell = cells[c].Trim();
-                if (cell.Length == 0 || cell == "_" || cell == ".")
-                {
-                    rowValues[c] = 0;
-                }
-                else if (cell.Length == 1 && char.IsDigit(cell[0]))
-                {
-                    rowValues[c] = cell[0] - '0';
-                }
-                else
-                {
-                    ok = false;
-                    break;
-                }
-            }
-            if (ok) rows.Add(rowValues);
-            if (rows.Count == 9) break;
-        }
-
-        if (rows.Count != 9) return null;
-
-        var v = new int[81];
-        for (var r = 0; r < 9; r++)
-            for (var c = 0; c < 9; c++)
-                v[r * 9 + c] = rows[r][c];
-        return v;
-    }
-
-    private static string Excerpt(string s, int maxLen)
-    {
-        if (string.IsNullOrEmpty(s)) return "(empty)";
-        return s.Length <= maxLen ? s : s.Substring(0, maxLen) + "...";
-    }
-
-    private static string? FindConflict(int[] values)
+    internal static string? FindConflict(int[] values)
     {
         for (var i = 0; i < 9; i++)
         {
@@ -432,20 +208,6 @@ public partial class GridExtractor
             for (var c = startCol; c < startCol + 3; c++)
                 yield return r * 9 + c;
     }
-
-    public const string DefaultPrompt = """
-        Read the digits from this sudoku puzzle image.
-
-        Output EXACTLY 9 lines, each containing EXACTLY 9 digits separated by spaces.
-        Use 0 for empty cells. Small candidate/pencil marks in cell corners are NOT digits — treat those cells as empty (0).
-        Do not solve the puzzle. Only report what is printed as a large digit in the cell.
-
-        Read left-to-right, top-to-bottom from the top-left corner.
-        Output ONLY the 9 lines of digits — no prose, no explanation, no code fences.
-        """;
-
-    [GeneratedRegex(@"[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9][\s,]*[0-9]")]
-    private static partial Regex DigitLineRegex();
 }
 
 public class GridExtractionResult

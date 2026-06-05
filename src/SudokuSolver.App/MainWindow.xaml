@@ -128,20 +128,6 @@
                                      materialDesign:HintAssist.Hint="Server URL"
                                      Margin="0,0,0,12" />
 
-                            <TextBlock Text="Vision Model" FontWeight="Medium" FontSize="12"
-                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
-                                       Margin="0,0,0,4" />
-                            <ComboBox Text="{Binding OllamaVisionModel, UpdateSourceTrigger=PropertyChanged}"
-                                      ItemsSource="{Binding AvailableModels}"
-                                      IsEditable="True" IsTextSearchEnabled="True"
-                                      Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                      materialDesign:HintAssist.Hint="Vision model (e.g. qwen3-vl:latest)"
-                                      Margin="0,0,0,4" />
-                            <TextBlock Text="Used to read digits from puzzle images. Must support image input."
-                                       TextWrapping="Wrap" FontSize="11"
-                                       Foreground="{DynamicResource MaterialDesignBodyLight}"
-                                       Margin="0,0,0,12" />
-
                             <TextBlock Text="Reasoning Model" FontWeight="Medium" FontSize="12"
                                        Foreground="{DynamicResource MaterialDesignBodyLight}"
                                        Margin="0,0,0,4" />
@@ -149,9 +135,9 @@
                                       ItemsSource="{Binding AvailableModels}"
                                       IsEditable="True" IsTextSearchEnabled="True"
                                       Style="{StaticResource MaterialDesignOutlinedComboBox}"
-                                      materialDesign:HintAssist.Hint="Reasoning model (e.g. deepseek-r1:14b)"
+                                      materialDesign:HintAssist.Hint="Reasoning model (e.g. gemma4:26b)"
                                       Margin="0,0,0,4" />
-                            <TextBlock Text="Used for AI Assist hints and Q&amp;A chat. Reasoning-focused models work best."
+                            <TextBlock Text="Used for AI Assist hints and Q&amp;A chat. Reasoning-focused models work best. Ollama is not required for image extraction (handled locally by CNN)."
                                        TextWrapping="Wrap" FontSize="11"
                                        Foreground="{DynamicResource MaterialDesignBodyLight}"
                                        Margin="0,0,0,12" />
@@ -209,18 +195,6 @@
                             </StackPanel>
 
                             <Separator Margin="0,0,0,12" />
-
-                            <DockPanel Margin="0,0,0,8">
-                                <TextBlock Text="Extraction Prompt" FontWeight="Medium" VerticalAlignment="Center" />
-                                <Button Content="Reset" Command="{Binding ResetPromptCommand}"
-                                        Style="{StaticResource MaterialDesignFlatButton}"
-                                        HorizontalAlignment="Right" FontSize="11" />
-                            </DockPanel>
-                            <TextBox Text="{Binding ExtractionPrompt, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource MaterialDesignOutlinedTextBox}"
-                                     AcceptsReturn="True" TextWrapping="Wrap" Height="100"
-                                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="12"
-                                     Margin="0,0,0,12" />
 
                             <Button Command="{Binding SaveSettingsCommand}"
                                     Style="{StaticResource MaterialDesignRaisedButton}"

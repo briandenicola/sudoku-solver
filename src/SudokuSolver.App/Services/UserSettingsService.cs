@@ -12,21 +12,19 @@ public sealed class UserSettings
     /// <summary>Legacy single-model field. Kept for backward-compat when loading older settings.</summary>
     public string? OllamaModel { get; set; }
 
-    /// <summary>Model used for image extraction. Must support vision input.</summary>
-    public string OllamaVisionModel { get; set; } = "qwen3-vl:30b";
-
     /// <summary>Model used for AI Assist hints and Q&A chat. Reasoning-focused models work best.</summary>
     public string OllamaReasoningModel { get; set; } = "gemma4:26b";
 
-    /// <summary>Small/fast model for per-cell digit classification in the hybrid extraction pipeline.</summary>
-    public string OllamaCellModel { get; set; } = "gemma4";
-
     public int OllamaTimeoutSeconds { get; set; } = 300;
-    public string? ExtractionPrompt { get; set; }
     public double AutoPlaySpeedSeconds { get; set; } = 2.0;
     public bool UseAiAssist { get; set; }
     public bool SaveChatHistory { get; set; } = true;
     public List<ChatMessageDto>? RecentChatMessages { get; set; }
+
+    // Legacy fields kept for backward-compat deserialization (ignored at runtime)
+    public string? OllamaVisionModel { get; set; }
+    public string? OllamaCellModel { get; set; }
+    public string? ExtractionPrompt { get; set; }
 }
 
 /// <summary>

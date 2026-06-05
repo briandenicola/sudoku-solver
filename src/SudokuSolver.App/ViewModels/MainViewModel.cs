@@ -77,19 +77,10 @@ public partial class MainViewModel : ObservableObject
     private string ollamaUrl = "http://localhost:11434";
 
     [ObservableProperty]
-    private string ollamaVisionModel = "qwen3-vl:30b";
-
-    [ObservableProperty]
     private string ollamaReasoningModel = "gemma4:26b";
 
     [ObservableProperty]
-    private string ollamaCellModel = "gemma4";
-
-    [ObservableProperty]
     private int ollamaTimeoutSeconds = 300;
-
-    [ObservableProperty]
-    private string extractionPrompt = GridExtractor.DefaultPrompt;
 
     [ObservableProperty]
     private string connectionStatus = "";
@@ -128,25 +119,13 @@ public partial class MainViewModel : ObservableObject
         var settings = _settingsService.Load();
         OllamaUrl = settings.OllamaUrl;
 
-        // Migrate from legacy single-model setting: if vision/reasoning weren't
-        // explicitly stored, fall back to the old OllamaModel value.
-        var legacyModel = settings.OllamaModel;
-        OllamaVisionModel = !string.IsNullOrWhiteSpace(settings.OllamaVisionModel)
-            ? settings.OllamaVisionModel
-            : (!string.IsNullOrWhiteSpace(legacyModel) ? legacyModel! : "gemma4:26b");
         OllamaReasoningModel = !string.IsNullOrWhiteSpace(settings.OllamaReasoningModel)
             ? settings.OllamaReasoningModel
-            : (!string.IsNullOrWhiteSpace(legacyModel) ? legacyModel! : "gemma4:26b");
-        OllamaCellModel = !string.IsNullOrWhiteSpace(settings.OllamaCellModel)
-            ? settings.OllamaCellModel
-            : "gemma4";
+            : (!string.IsNullOrWhiteSpace(settings.OllamaModel) ? settings.OllamaModel! : "gemma4:26b");
 
         OllamaTimeoutSeconds = settings.OllamaTimeoutSeconds;
         AutoPlaySpeedSeconds = settings.AutoPlaySpeedSeconds;
         UseAiAssist = settings.UseAiAssist;
-
-        if (!string.IsNullOrWhiteSpace(settings.ExtractionPrompt))
-            ExtractionPrompt = settings.ExtractionPrompt;
 
         // Load chat history if enabled
         if (settings.SaveChatHistory && settings.RecentChatMessages != null)
@@ -169,15 +148,10 @@ public partial class MainViewModel : ObservableObject
         var settings = new UserSettings
         {
             OllamaUrl = OllamaUrl,
-            OllamaVisionModel = OllamaVisionModel,
             OllamaReasoningModel = OllamaReasoningModel,
-            OllamaCellModel = OllamaCellModel,
             OllamaTimeoutSeconds = OllamaTimeoutSeconds,
             AutoPlaySpeedSeconds = AutoPlaySpeedSeconds,
             UseAiAssist = UseAiAssist,
-            ExtractionPrompt = ExtractionPrompt == GridExtractor.DefaultPrompt
-                ? null
-                : ExtractionPrompt,
             SaveChatHistory = true,
             RecentChatMessages = ChatViewModel.Messages
                 .TakeLast(20)  // Save only last 20 messages
@@ -548,18 +522,11 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void ResetPrompt()
-    {
-        ExtractionPrompt = GridExtractor.DefaultPrompt;
-    }
-
-    [RelayCommand]
     private async Task TestConnectionAsync()
     {
-        // Capture desired models up-front. Mutating AvailableModels below can
-        // cause the editable ComboBoxes to reset their Text (and therefore the
-        // bound model properties) before validation runs.
-        var desiredVision = OllamaVisionModel;
+        // Capture desired model up-front. Mutating AvailableModels below can
+        // cause the editable ComboBox to reset its Text (and therefore the
+        // bound model property) before validation runs.
         var desiredReasoning = OllamaReasoningModel;
         var desiredUrl = OllamaUrl;
 
@@ -571,7 +538,7 @@ public partial class MainViewModel : ObservableObject
             var settings = new OllamaSettings
             {
                 BaseUrl = desiredUrl,
-                Model = string.IsNullOrWhiteSpace(desiredVision) ? desiredReasoning : desiredVision,
+                Model = desiredReasoning,
                 TimeoutSeconds = 10
             };
             settings.Validate();
@@ -584,30 +551,24 @@ public partial class MainViewModel : ObservableObject
             foreach (var model in models.OrderBy(m => m, StringComparer.OrdinalIgnoreCase))
                 AvailableModels.Add(model);
 
-            // Restore selections — clearing/repopulating ItemsSource can wipe
+            // Restore selection — clearing/repopulating ItemsSource can wipe
             // the editable ComboBox text when the previously selected item is
             // momentarily absent from the collection.
-            OllamaVisionModel = desiredVision;
             OllamaReasoningModel = desiredReasoning;
 
             bool ModelExists(string name) =>
                 !string.IsNullOrWhiteSpace(name) &&
                 models.Any(m => m.StartsWith(name, StringComparison.OrdinalIgnoreCase));
 
-            var visionOk = ModelExists(desiredVision);
             var reasoningOk = ModelExists(desiredReasoning);
 
-            var missing = new List<string>();
-            if (!visionOk) missing.Add($"vision: '{desiredVision}'");
-            if (!reasoningOk) missing.Add($"reasoning: '{desiredReasoning}'");
-
-            if (missing.Count == 0)
+            if (reasoningOk)
             {
-                ConnectionStatus = $"✅ Connected — both models available. {models.Count} model(s) found.";
+                ConnectionStatus = $"✅ Connected — reasoning model available. {models.Count} model(s) found.";
             }
             else
             {
-                ConnectionStatus = $"⚠️ Connected ({models.Count} model(s) found), but missing — {string.Join("; ", missing)}. Select from the dropdown or pull with: ollama pull <name>";
+                ConnectionStatus = $"⚠️ Connected ({models.Count} model(s) found), but missing reasoning model: '{desiredReasoning}'. Select from the dropdown or pull with: ollama pull <name>";
             }
         }
         catch (InvalidOperationException ex)
@@ -634,28 +595,32 @@ public partial class MainViewModel : ObservableObject
 
     private void EnsureExtractor()
     {
-        var timeoutSeconds = Math.Max(OllamaTimeoutSeconds, 1);
-        var settings = new OllamaSettings
-        {
-            BaseUrl = OllamaUrl,
-            Model = OllamaVisionModel,
-            TimeoutSeconds = timeoutSeconds
-        };
-        var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) };
-        var ollamaClient = new OllamaClient(httpClient, settings);
+        if (_extractor != null)
+            return;
 
-        // Create a separate fast client for per-cell digit classification
-        var cellSettings = new OllamaSettings
-        {
-            BaseUrl = OllamaUrl,
-            Model = OllamaCellModel,
-            TimeoutSeconds = 30
-        };
-        var cellHttpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
-        var cellClient = new OllamaClient(cellHttpClient, cellSettings);
+        var modelPath = GetDigitModelPath();
+        var classifier = new DigitClassifier(modelPath);
+        _extractor = new GridExtractor(classifier);
+    }
 
-        var prompt = string.IsNullOrWhiteSpace(ExtractionPrompt) ? null : ExtractionPrompt;
-        _extractor = new GridExtractor(ollamaClient, cellClient, prompt);
+    private static string GetDigitModelPath()
+    {
+        // Look for model in app directory first, then in a Models subdirectory
+        var appDir = AppContext.BaseDirectory;
+        var candidates = new[]
+        {
+            Path.Combine(appDir, "Models", "mnist-cnn.onnx"),
+            Path.Combine(appDir, "mnist-cnn.onnx"),
+        };
+
+        foreach (var path in candidates)
+        {
+            if (File.Exists(path))
+                return path;
+        }
+
+        throw new FileNotFoundException(
+            "Digit recognition model not found. Please place 'mnist-cnn.onnx' in the application's Models directory.");
     }
 
     private static BitmapImage LoadBitmapImage(string filePath)

@@ -31,31 +31,7 @@ public static class OpenCVGridDetector
         if (src.Empty())
             return null;
 
-        // Convert to grayscale
-        using var gray = new Mat();
-        Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
-
-        // Apply Gaussian blur to reduce noise
-        using var blurred = new Mat();
-        Cv2.GaussianBlur(gray, blurred, new Size(5, 5), 0);
-
-        // Apply adaptive threshold to get binary image
-        using var thresh = new Mat();
-        Cv2.AdaptiveThreshold(blurred, thresh, 255,
-            AdaptiveThresholdTypes.GaussianC, ThresholdTypes.BinaryInv, 11, 2);
-
-        // Find contours
-        Cv2.FindContours(thresh, out var contours, out _,
-            RetrievalModes.External, ContourApproximationModes.ApproxSimple);
-
-        // Find the largest contour that could be the grid (4 corners, large area)
-        var gridContour = FindSudokuGridContour(contours);
-
-        if (gridContour == null)
-            return null;
-
-        // Get corner points and apply perspective transform
-        var corners = GetCornerPoints(gridContour);
+        var corners = DetectGridCorners(src);
         if (corners == null)
             return null;
 
@@ -63,6 +39,88 @@ public static class OpenCVGridDetector
         corners = ExpandCorners(corners, margin: 4);
 
         return WarpToGrid(src, corners);
+    }
+
+    /// <summary>
+    /// Detects the four corners of the Sudoku grid in source-image coordinates.
+    /// Robust to broken borders and perspective distortion: it finds the largest
+    /// contour and derives the four extreme corners from all its points rather than
+    /// requiring a clean 4-point polygon approximation.
+    /// </summary>
+    internal static Point2f[]? DetectGridCorners(Mat src)
+    {
+        using var gray = new Mat();
+        Cv2.CvtColor(src, gray, ColorConversionCodes.BGR2GRAY);
+
+        using var blurred = new Mat();
+        Cv2.GaussianBlur(gray, blurred, new Size(5, 5), 0);
+
+        // Adaptive threshold with a block size that scales with the image so the
+        // grid border resolves into a connected shape on large photos.
+        var blockSize = Math.Max(11, (Math.Min(src.Rows, src.Cols) / 20) | 1); // odd, >= 11
+        using var thresh = new Mat();
+        Cv2.AdaptiveThreshold(blurred, thresh, 255,
+            AdaptiveThresholdTypes.GaussianC, ThresholdTypes.BinaryInv, blockSize, 7);
+
+        // Close gaps in the grid border so it forms one connected contour.
+        using var kernel = Cv2.GetStructuringElement(MorphShapes.Rect, new Size(3, 3));
+        using var closed = new Mat();
+        Cv2.MorphologyEx(thresh, closed, MorphTypes.Close, kernel);
+
+        Cv2.FindContours(closed, out var contours, out _,
+            RetrievalModes.External, ContourApproximationModes.ApproxSimple);
+
+        if (contours.Length == 0)
+            return null;
+
+        // The grid is the largest contour by area, with a sanity check that it
+        // covers a meaningful fraction of the image and is roughly square.
+        var imageArea = (double)src.Rows * src.Cols;
+        Point[]? best = null;
+        double bestArea = 0;
+        foreach (var contour in contours)
+        {
+            var area = Cv2.ContourArea(contour);
+            if (area < imageArea * 0.15) // must cover at least 15% of the image
+                continue;
+            if (area > bestArea)
+            {
+                bestArea = area;
+                best = contour;
+            }
+        }
+
+        if (best == null)
+            return null;
+
+        return ExtremeCorners(best);
+    }
+
+    /// <summary>
+    /// Derives the four grid corners from the extreme points of a contour.
+    /// Top-left has the minimum (x+y), bottom-right the maximum (x+y),
+    /// top-right the maximum (x-y), and bottom-left the minimum (x-y).
+    /// Using all contour points (not a 4-point approximation) is robust to
+    /// jagged or partially-broken borders.
+    /// </summary>
+    private static Point2f[] ExtremeCorners(Point[] contour)
+    {
+        Point tl = contour[0], tr = contour[0], br = contour[0], bl = contour[0];
+        foreach (var p in contour)
+        {
+            if (p.X + p.Y < tl.X + tl.Y) tl = p;
+            if (p.X + p.Y > br.X + br.Y) br = p;
+            if (p.X - p.Y > tr.X - tr.Y) tr = p;
+            if (p.X - p.Y < bl.X - bl.Y) bl = p;
+        }
+
+        return
+        [
+            new Point2f(tl.X, tl.Y),
+            new Point2f(tr.X, tr.Y),
+            new Point2f(br.X, br.Y),
+            new Point2f(bl.X, bl.Y),
+        ];
     }
 
     /// <summary>
@@ -88,60 +146,9 @@ public static class OpenCVGridDetector
         return expanded;
     }
 
-    private static Point2f[]? FindSudokuGridContour(Point[][] contours)
-    {
-        Point2f[]? bestContour = null;
-        double bestArea = 0;
-        const double minArea = 10000; // Minimum area for a valid grid
-
-        // Try multiple epsilon values — some images need more aggressive simplification
-        double[] epsilonFactors = [0.02, 0.03, 0.04];
-
-        foreach (var contour in contours)
-        {
-            var area = Cv2.ContourArea(contour);
-            if (area < minArea)
-                continue;
-
-            var arcLength = Cv2.ArcLength(contour, true);
-
-            foreach (var factor in epsilonFactors)
-            {
-                var epsilon = arcLength * factor;
-                var approx = Cv2.ApproxPolyDP(contour, epsilon, true);
-
-                if (approx.Length == 4 && area > bestArea)
-                {
-                    bestArea = area;
-                    bestContour = approx.Select(p => new Point2f(p.X, p.Y)).ToArray();
-                    break; // Found a quad for this contour, move to next
-                }
-            }
-        }
-
-        return bestContour;
-    }
-
-    private static Point2f[]? GetCornerPoints(Point2f[] contour)
-    {
-        // Reorder corners to: top-left, top-right, bottom-right, bottom-left
-        var points = contour.Select(p => new Point2f(p.X, p.Y)).ToArray();
-
-        var sums = points.Select(p => p.X + p.Y).ToArray();
-        var diffs = points.Select(p => p.X - p.Y).ToArray();
-
-        var ordered = new Point2f[4];
-        ordered[0] = points[Array.IndexOf(sums, sums.Min())];     // Top-left (min sum)
-        ordered[2] = points[Array.IndexOf(sums, sums.Max())];     // Bottom-right (max sum)
-        ordered[1] = points[Array.IndexOf(diffs, diffs.Max())];   // Top-right (max diff)
-        ordered[3] = points[Array.IndexOf(diffs, diffs.Min())];   // Bottom-left (min diff)
-
-        return ordered;
-    }
-
     private static Mat WarpToGrid(Mat src, Point2f[] corners)
     {
-        const int gridSize = 450; // Standard grid size
+        const int gridSize = 900; // Large size for better digit resolution
         var dst = new Mat(gridSize, gridSize, MatType.CV_8UC3, Scalar.All(255));
 
         var dstPts = new Point2f[]
@@ -169,17 +176,24 @@ public static class OpenCVGridDetector
         var horizontalLines = DetectGridLines(warpedGrid, horizontal: true);
 
         var cells = new Mat[9][];
-        const int padding = 4; // Inset to avoid grid lines in cell images
 
         for (var row = 0; row < 9; row++)
         {
             cells[row] = new Mat[9];
             for (var col = 0; col < 9; col++)
             {
-                var x1 = verticalLines[col] + padding;
-                var y1 = horizontalLines[row] + padding;
-                var x2 = verticalLines[col + 1] - padding;
-                var y2 = horizontalLines[row + 1] - padding;
+                // Inset by a proportion of the cell size to crop grid-line borders.
+                // Proportional padding adapts to image resolution and is large enough
+                // to remove thick or slightly-misaligned grid lines from photos.
+                var cellW = verticalLines[col + 1] - verticalLines[col];
+                var cellH = horizontalLines[row + 1] - horizontalLines[row];
+                var padX = Math.Max(3, (int)(cellW * 0.10));
+                var padY = Math.Max(3, (int)(cellH * 0.10));
+
+                var x1 = verticalLines[col] + padX;
+                var y1 = horizontalLines[row] + padY;
+                var x2 = verticalLines[col + 1] - padX;
+                var y2 = horizontalLines[row + 1] - padY;
 
                 // Clamp to image bounds
                 x1 = Math.Max(0, x1);
@@ -215,16 +229,16 @@ public static class OpenCVGridDetector
     /// </summary>
     internal static int[] DetectGridLines(Mat warpedGrid, bool horizontal)
     {
-        const int gridSize = 450;
+        var gridSize = horizontal ? warpedGrid.Rows : warpedGrid.Cols;
         const int expectedLines = 10;
-        const int expectedSpacing = gridSize / 9; // ~50px
+        var expectedSpacing = gridSize / 9;
 
         // Convert to grayscale and threshold
         using var gray = new Mat();
         if (warpedGrid.Channels() == 3)
             Cv2.CvtColor(warpedGrid, gray, ColorConversionCodes.BGR2GRAY);
         else
-            gray.SetTo(warpedGrid);
+            warpedGrid.CopyTo(gray);
 
         using var binary = new Mat();
         Cv2.AdaptiveThreshold(gray, binary, 255,
@@ -415,7 +429,7 @@ public static class OpenCVGridDetector
         gaps.Sort();
         var medianGap = gaps[gaps.Count / 2];
 
-        if (medianGap < 20 || medianGap > 80) return null; // Unreasonable for 450px grid
+        if (medianGap < 20 || medianGap > gridSize / 5) return null; // Unreasonable gap
 
         // Try to build a 10-line grid starting from the first peak
         var result = new int[expectedLines];
