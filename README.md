@@ -1,12 +1,13 @@
 # Sudoku Solver Tutor
 
-A Windows desktop application that teaches you how to solve sudoku puzzles. Upload a photo of a puzzle (or enter one manually), and the app walks you through the solution step-by-step — explaining not just *what* technique was used, but *how* the pattern was identified.
+A Windows desktop application that teaches you how to solve sudoku puzzles. Generate a puzzle, upload a photo, or enter one manually, and the app walks you through the solution step-by-step — explaining not just *what* technique was used, but *how* the pattern was identified.
 
 Built with .NET 10, WPF, OpenCV, and Material Design.
 
 ## Features
 
 - **Image extraction (OpenCV + CNN)** — Upload a photo of a sudoku puzzle; OpenCV detects and de-warps the grid, then a small local CNN (ONNX) classifies each cell. No LLM or network call is involved. See [docs/cnn_vs_lvm.md](docs/cnn_vs_lvm.md) for why this classical pipeline beats a vision-language model at grid transcription.
+- **Puzzle generation** — Generate a unique-solution puzzle by choosing the same 1–5 star difficulty scale used by the solver rating.
 - **Manual entry** — Type or paste 81 digits directly
 - **Step-by-step solving** — Walk through with Next/Previous or auto-play at adjustable speed
 - **Detailed explanations** — Each step explains the reasoning (e.g., "In row 3, the digit 7 can only go in R3C4 because…")
@@ -92,7 +93,8 @@ Click **Test Connection** to verify the server is reachable and see which models
 │   ├── SudokuSolver.Engine/      # Core solver library (no UI dependencies)
 │   │   ├── Models/               # Grid, Cell, CandidateSet, SolveStep, Technique
 │   │   ├── Techniques/           # One class per technique (ISolvingTechnique)
-│   │   └── Solver.cs             # Orchestrates techniques in difficulty order
+│   │   ├── Solver.cs             # Orchestrates techniques in difficulty order
+│   │   └── PuzzleGenerator.cs    # Generates unique puzzles by target difficulty rating
 │   ├── SudokuSolver.Vision/      # Image extraction + AI services
 │   │   ├── OpenCVGridDetector.cs # Detect, de-warp, and split the grid into 81 cells
 │   │   ├── CellExtractor.cs      # Preprocess cell crops and detect empties

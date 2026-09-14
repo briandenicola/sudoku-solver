@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using Microsoft.Win32;
+using SudokuSolver.App.Dialogs;
 using SudokuSolver.App.ViewModels;
 
 namespace SudokuSolver.App;
@@ -44,6 +45,18 @@ public partial class MainWindow : Window
         ManualEntryPanel.Visibility = ManualEntryPanel.Visibility == Visibility.Visible
             ? Visibility.Collapsed
             : Visibility.Visible;
+    }
+
+    private async void OnGeneratePuzzleClick(object sender, RoutedEventArgs e)
+    {
+        SettingsPanel.Visibility = Visibility.Collapsed;
+        ManualEntryPanel.Visibility = Visibility.Collapsed;
+
+        var dialog = new GeneratePuzzleDialog { Owner = this };
+        if (dialog.ShowDialog() == true)
+        {
+            await ViewModel.GeneratePuzzleCommand.ExecuteAsync(dialog.SelectedDifficulty);
+        }
     }
 
     private void OnLoadManualClick(object sender, RoutedEventArgs e)

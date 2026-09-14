@@ -17,6 +17,7 @@ namespace SudokuSolver.App.ViewModels;
 public partial class MainViewModel : ObservableObject
 {
     private readonly Solver _solver = new();
+    private readonly PuzzleGenerator _puzzleGenerator = new();
     private readonly UserSettingsService _settingsService = new();
     private GridExtractor? _extractor;
     private DispatcherTimer? _autoPlayTimer;
@@ -232,6 +233,38 @@ public partial class MainViewModel : ObservableObject
                 ex.Message,
                 "Error loading image",
                 MessageDialog.Severity.Error);
+        }
+        finally
+        {
+            IsBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task GeneratePuzzleAsync(int difficulty)
+    {
+        IsBusy = true;
+        StatusMessage = $"Generating difficulty {difficulty} puzzle...";
+
+        try
+        {
+            var generated = await Task.Run(() => _puzzleGenerator.Generate(difficulty)).ConfigureAwait(true);
+
+            SetPuzzle(generated.Grid);
+            PuzzleImage = null;
+            DifficultyLabel = generated.Difficulty.Label;
+            DifficultyStars = generated.Difficulty.StarsDisplay;
+            DifficultyBreakdown = generated.Difficulty.Breakdown;
+            StatusMessage = $"Generated {generated.Difficulty.Label} puzzle {generated.Difficulty.StarsDisplay}. Click Solve to begin.";
+            UpdateChatContext();
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Could not generate puzzle: {ex.Message}";
+            MessageDialog.Show(
+                ex.Message,
+                "Could not generate puzzle",
+                MessageDialog.Severity.Warning);
         }
         finally
         {

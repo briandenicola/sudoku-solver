@@ -147,7 +147,7 @@ public record SolveResult(IReadOnlyList<SolveStep> Steps, SolveOutcome Outcome)
         if (hardest <= Technique.HiddenSingle && score < 80)
             return ("Beginner", 1);
 
-        if (hardest <= Technique.BoxLineReduction && score < 150)
+        if (hardest <= Technique.BoxLineReduction && score < 60)
             return ("Easy", 2);
 
         if (hardest <= Technique.BoxLineReduction)
