@@ -1,0 +1,16 @@
+# Minor and patch updates are batched into one PR per ecosystem.
+# Major updates still arrive as individual PRs for manual review.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directories:
+      - "/src/SudokuSolver.App"
+      - "/src/SudokuSolver.Engine"
+      - "/src/SudokuSolver.Vision"
+      - "/tests/SudokuSolver.Engine.Tests"
+      - "/tests/SudokuSolver.Vision.Tests"
+    schedule:
+      interval: weekly
+    groups:
+      nuget-minor-patch:
+        update-types: [minor, patch]
